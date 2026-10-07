@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 1024 1024"
+   role="img"
+   aria-labelledby="title desc"
+   version="1.1"
+   id="svg102"
+   sodipodi:docname="inferdroid-logo.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <sodipodi:namedview
+     id="namedview67"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="0.81445312"
+     inkscape:cx="512.61391"
+     inkscape:cy="512"
+     inkscape:window-width="1920"
+     inkscape:window-height="1007"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg102" />
+  <title
+     id="title">InferDroid brain chip</title>
+  <desc
+     id="desc">Green-to-cyan AI brain circuitry integrated into a processor chip with a central S-shaped mark.</desc>
+  <defs
+     id="defs30">
+    <linearGradient
+       id="neon"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#b5f65b"
+         id="stop4" />
+      <stop
+         offset=".38"
+         stop-color="#48ef9d"
+         id="stop6" />
+      <stop
+         offset=".7"
+         stop-color="#10e3d4"
+         id="stop8" />
+      <stop
+         offset="1"
+         stop-color="#08bde8"
+         id="stop10" />
+    </linearGradient>
+    <linearGradient
+       id="bg"
+       x1="120"
+       y1="80"
+       x2="900"
+       y2="940"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0"
+         stop-color="#0b554a"
+         id="stop13" />
+      <stop
+         offset=".48"
+         stop-color="#062f32"
+         id="stop15" />
+      <stop
+         offset="1"
+         stop-color="#03191f"
+         id="stop17" />
+    </linearGradient>
+    <filter
+       id="shadow"
+       x="-0.053571429"
+       y="-0.049632353"
+       width="1.1071429"
+       height="1.0992647">
+      <feDropShadow
+         dx="16"
+         dy="22"
+         stdDeviation="16"
+         flood-color="#000"
+         flood-opacity=".30" />
+    </filter>
+    <filter
+       id="softGlow"
+       x="-0.12804878"
+       y="-0.12068966"
+       width="1.2560976"
+       height="1.2413793">
+      <feGaussianBlur
+         stdDeviation="5"
+         result="b"
+         id="feGaussianBlur21" />
+      <feMerge
+         id="feMerge27">
+        <feMergeNode
+           in="b"
+           id="feMergeNode23" />
+        <feMergeNode
+           in="SourceGraphic"
+           id="feMergeNode25" />
+      </feMerge>
+    </filter>
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient214"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780"
+       gradientTransform="translate(2.1680139,-10.975823)" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient270"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient272"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient274"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient276"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient278"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient280"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient282"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient284"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       xlink:href="#neon"
+       id="linearGradient286"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#neon"
+       id="linearGradient346"
+       gradientUnits="userSpaceOnUse"
+       x1="220"
+       y1="250"
+       x2="820"
+       y2="780"
+       gradientTransform="translate(-1.8645833,23.534285)" />
+  </defs>
+  <!-- App tile -->
+  <rect
+     x="38"
+     y="38"
+     width="948"
+     height="948"
+     rx="190"
+     fill="url(#bg)"
+     id="app-tile" />
+  <!-- Processor frame -->
+  <rect
+     x="258.13541"
+     y="263.5343"
+     width="504"
+     height="544"
+     rx="78"
+     fill="none"
+     stroke="url(#neon)"
+     stroke-width="54"
+     filter="url(#shadow)"
+     id="rect34"
+     style="stroke:url(#linearGradient346)" />
+  <!-- Side processor pins -->
+  <g
+     fill="none"
+     stroke="url(#neon)"
+     stroke-width="46"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="g52"
+     style="stroke:url(#linearGradient286)"
+     transform="translate(2.187067,39.49834)">
+    <path
+       d="m 257,328 h -83 v 46 h -31"
+       id="path36"
+       style="stroke:url(#linearGradient270)" />
+    <path
+       d="m 257,434 h -83 v 46 h -31"
+       id="path38"
+       style="stroke:url(#linearGradient272)" />
+    <path
+       d="m 257,540 h -83 v 46 h -31"
+       id="path40"
+       style="stroke:url(#linearGradient274)" />
+    <path
+       d="m 257,646 h -83 v 46 h -31"
+       id="path42"
+       style="stroke:url(#linearGradient276)" />
+    <path
+       d="m 767,328 h 83 v 46 h 31"
+       id="path44"
+       style="stroke:url(#linearGradient278)" />
+    <path
+       d="m 767,434 h 83 v 46 h 31"
+       id="path46"
+       style="stroke:url(#linearGradient280)" />
+    <path
+       d="m 767,540 h 83 v 46 h 31"
+       id="path48"
+       style="stroke:url(#linearGradient282)" />
+    <path
+       d="m 767,646 h 83 v 46 h 31"
+       id="path50"
+       style="stroke:url(#linearGradient284)" />
+  </g>
+  <!-- Brain outline -->
+  <g
+     fill="none"
+     stroke="url(#neon)"
+     stroke-width="25"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="g58">
+    <path
+       d="M500 366            C472 331 426 335 405 367            C391 388 388 409 391 429            C354 432 330 460 333 493            C306 515 305 553 325 578            C307 610 324 650 359 664            C363 705 395 732 434 730            C471 728 500 701 500 665 Z"
+       id="path54" />
+    <path
+       d="M524 366            C552 331 598 335 619 367            C633 388 636 409 633 429            C670 432 694 460 691 493            C718 515 719 553 699 578            C717 610 700 650 665 664            C661 705 629 732 590 730            C553 728 524 701 524 665 Z"
+       id="path56" />
+  </g>
+  <!-- Neural traces -->
+  <g
+     fill="none"
+     stroke="url(#neon)"
+     stroke-width="14"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     id="g72">
+    <path
+       d="M425 414 L451 459 L451 500"
+       id="path60" />
+    <path
+       d="M376 471 L418 515 L449 515"
+       id="path62" />
+    <path
+       d="M355 548 L402 605"
+       id="path64" />
+    <path
+       d="M599 414 L573 459 L573 500"
+       id="path66" />
+    <path
+       d="M648 471 L606 515 L575 515"
+       id="path68" />
+    <path
+       d="M669 548 L622 605"
+       id="path70" />
+  </g>
+  <!-- Neural nodes -->
+  <g
+     stroke="url(#neon)"
+     stroke-width="13"
+     fill="#073438"
+     id="g90">
+    <circle
+       cx="425"
+       cy="414"
+       r="18"
+       id="circle74" />
+    <circle
+       cx="376"
+       cy="471"
+       r="18"
+       id="circle76" />
+    <circle
+       cx="355"
+       cy="548"
+       r="18"
+       id="circle78" />
+    <circle
+       cx="402"
+       cy="605"
+       r="18"
+       id="circle80" />
+    <circle
+       cx="599"
+       cy="414"
+       r="18"
+       id="circle82" />
+    <circle
+       cx="648"
+       cy="471"
+       r="18"
+       id="circle84" />
+    <circle
+       cx="669"
+       cy="548"
+       r="18"
+       id="circle86" />
+    <circle
+       cx="622"
+       cy="605"
+       r="18"
+       id="circle88" />
+  </g>
+  <g
+     fill="url(#neon)"
+     id="g96">
+    <circle
+       cx="449"
+       cy="515"
+       r="14"
+       id="circle92" />
+    <circle
+       cx="575"
+       cy="515"
+       r="14"
+       id="circle94" />
+  </g>
+  <!-- Central processor / S mark -->
+  <rect
+     x="430"
+     y="470"
+     width="164"
+     height="174"
+     rx="35"
+     fill="#05292e"
+     stroke="url(#neon)"
+     stroke-width="18"
+     filter="url(#softGlow)"
+     id="rect98" />
+  <path
+     d="m 555.16801,505.02418 h -61 c -19,0 -30,10 -30,25 0,15 11,24 29,24 h 37 c 18,0 29,10 29,26 0,17 -13,28 -32,28 h -57"
+     fill="none"
+     stroke="url(#neon)"
+     stroke-width="28"
+     stroke-linecap="square"
+     stroke-linejoin="round"
+     id="path100"
+     style="stroke:url(#linearGradient214)" />
+  <metadata
+     id="metadata304">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>InferDroid brain chip</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

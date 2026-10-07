@@ -1,0 +1,253 @@
+// Initialization adapted from LiteRT-LM runtime/engine/litert_lm_main.cc
+// at 0b98b80e1d846af27d10b8ab395645119cb231e4 (Apache-2.0, ODML Authors).
+#include "runtime_api.h"
+
+#include <android/log.h>
+#include <fcntl.h>
+#include <link.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <chrono>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <utility>
+
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "nlohmann/json.hpp"
+#include "runtime/conversation/conversation.h"
+#include "runtime/engine/engine_factory.h"
+#include "runtime/engine/engine_settings.h"
+#include "runtime/executor/executor_settings_base.h"
+#include "runtime/executor/llm_executor_settings.h"
+#include "runtime/util/logging.h"
+#include "runtime/util/scoped_file.h"
+
+namespace {
+constexpr size_t kLogLimit = 128 * 1024;
+std::mutex inference_mutex;
+
+// The pinned LiteRT Android logger writes to logcat AND stderr. Capture stderr
+// and stdout during this one request so diagnostics also survive in the Java UI.
+// Native logcat remains available if an upstream fatal error terminates the app.
+class LogCapture {
+ public:
+  LogCapture() {
+    int descriptors[2];
+    if (pipe2(descriptors, O_CLOEXEC) != 0) return;
+    saved_out_ = dup(STDOUT_FILENO);
+    saved_err_ = dup(STDERR_FILENO);
+    if (saved_out_ < 0 || saved_err_ < 0) {
+      if (saved_out_ >= 0) close(saved_out_);
+      if (saved_err_ >= 0) close(saved_err_);
+      saved_out_ = saved_err_ = -1;
+      close(descriptors[0]);
+      close(descriptors[1]);
+      return;
+    }
+    fflush(nullptr);
+    read_fd_ = descriptors[0];
+    reader_ = std::thread([this] {
+      char buffer[4096];
+      std::string pending;
+      ssize_t size;
+      while ((size = read(read_fd_, buffer, sizeof(buffer))) != 0) {
+        if (size < 0) {
+          if (errno == EINTR) continue;
+          break;
+        }
+        pending.append(buffer, size);
+        size_t end;
+        while ((end = pending.find('\n')) != std::string::npos) {
+          Append(pending.substr(0, end));
+          pending.erase(0, end + 1);
+        }
+        if (pending.size() > 8192) {
+          Append(pending);
+          pending.clear();
+        }
+      }
+      if (!pending.empty()) Append(pending);
+    });
+    dup2(descriptors[1], STDOUT_FILENO);
+    dup2(descriptors[1], STDERR_FILENO);
+    close(descriptors[1]);
+  }
+
+  ~LogCapture() { Stop(); }
+
+  void Stop() {
+    if (saved_out_ < 0) return;
+    fflush(nullptr);
+    dup2(saved_out_, STDOUT_FILENO);
+    dup2(saved_err_, STDERR_FILENO);
+    close(saved_out_);
+    close(saved_err_);
+    saved_out_ = saved_err_ = -1;
+    reader_.join();
+    close(read_fd_);
+  }
+
+  const std::string& Text() const { return text_; }  // Only read after Stop().
+
+ private:
+  void Append(const std::string& line) {
+    // Preserve the earliest initialization evidence even if later logs are large.
+    if (text_.size() < kLogLimit) {
+      text_.append(line.substr(0, kLogLimit - text_.size()));
+      text_ += '\n';
+    }
+    __android_log_write(ANDROID_LOG_INFO, "InferDroidRuntime", line.c_str());
+  }
+  int saved_out_ = -1;
+  int saved_err_ = -1;
+  int read_fd_ = -1;
+  std::thread reader_;
+  std::string text_;
+};
+
+struct LoadedLibraries {
+  std::string dispatch;
+  std::string southbound;
+};
+
+int FindLibraries(dl_phdr_info* info, size_t, void* state) {
+  auto& libraries = *static_cast<LoadedLibraries*>(state);
+  const std::string path = info->dlpi_name ? info->dlpi_name : "";
+  if (path.ends_with("/libLiteRtDispatch_GoogleTensor.so")) libraries.dispatch = path;
+  if (path == "libedgetpu_litert.so" || path.ends_with("/libedgetpu_litert.so")) {
+    libraries.southbound = path;
+  }
+  return 0;
+}
+
+absl::StatusOr<std::string> Generate(int fd, const char* path,
+                                    const char* library_dir, const char* cache_dir,
+                                    const char* prompt, bool verbose,
+                                    std::ostringstream& diagnostics) {
+  using namespace litert::lm;
+  SetMinLogSeverity(verbose ? LogSeverity::kInfo : LogSeverity::kWarning);
+  diagnostics << "LiteRT-LM v0.14.0-alpha.0 / 0b98b80e1d846af27d10b8ab395645119cb231e4\n"
+              << "LiteRT / 43d8b4f20ef743a7c5beb69c365538e726cc20d9\n"
+              << "Requested backend: NPU; CPU retry is disabled\n"
+              << "Dispatch directory: " << library_dir << '\n';
+
+  const std::string dispatch_path = std::string(library_dir) + "/libLiteRtDispatch_GoogleTensor.so";
+  if (access(dispatch_path.c_str(), R_OK) != 0) {
+    return absl::FailedPreconditionError("Packaged Google Tensor dispatch library is missing: " + dispatch_path);
+  }
+
+  absl::StatusOr<ModelAssets> assets = absl::InvalidArgumentError("No model was selected.");
+  if (fd >= 0) {
+    struct stat st {};
+    if (fstat(fd, &st) != 0 || st.st_size <= 0 || lseek(fd, 0, SEEK_CUR) < 0) {
+      return absl::InvalidArgumentError("Model descriptor must be a non-empty seekable local file. Select the .litertlm in device storage, or use an app-private path.");
+    }
+    int owned_fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+    if (owned_fd < 0) return absl::InternalError("Failed to duplicate the model descriptor.");
+    assets = ModelAssets::Create(std::make_shared<ScopedFile>(owned_fd));
+    diagnostics << "Model: document descriptor; " << st.st_size << " bytes (no copy)\n";
+  } else if (path && path[0] == '/') {
+    assets = ModelAssets::Create(path);
+    diagnostics << "Model path: " << path << '\n';
+  }
+  if (!assets.ok()) return assets.status();
+  auto settings = EngineSettings::CreateDefault(std::move(*assets), Backend::NPU);
+  if (!settings.ok()) return settings.status();
+  auto& executor_settings = settings->GetMutableMainExecutorSettings();
+  executor_settings.SetLitertDispatchLibDir(library_dir);
+  executor_settings.SetCacheDir(cache_dir);
+  settings->GetMutableBenchmarkParams() = proto::BenchmarkParams();
+
+  diagnostics << "Creating NPU engine...\n";
+  __android_log_write(ANDROID_LOG_INFO, "InferDroid", "Creating LiteRT-LM NPU engine");
+  const auto init_start = std::chrono::steady_clock::now();
+  auto engine = EngineFactory::CreateDefault(std::move(*settings));
+  if (!engine.ok()) return engine.status();
+  diagnostics << "Engine init: " << std::chrono::duration_cast<std::chrono::milliseconds>(
+      std::chrono::steady_clock::now() - init_start).count() << " ms\n";
+
+  auto session_config = SessionConfig::CreateDefault();
+  session_config.SetMaxOutputTokens(256);
+  auto config = ConversationConfig::Builder().SetSessionConfig(session_config).Build(**engine);
+  if (!config.ok()) return config.status();
+  auto conversation = Conversation::Create(**engine, *config);
+  if (!conversation.ok()) return conversation.status();
+
+  // Exactly the CLI's role/content structure; model metadata supplies templating.
+  const nlohmann::json message = {
+      {"role", "user"},
+      {"content", nlohmann::json::array({{{"type", "text"}, {"text", prompt}}})}};
+  auto response = (*conversation)->SendMessage(message);
+  if (!response.ok()) return response.status();
+
+  LoadedLibraries libraries;
+  dl_iterate_phdr(FindLibraries, &libraries);
+  diagnostics << "Loaded Google Tensor dispatch: " << libraries.dispatch << '\n'
+              << "Loaded EdgeTPU southbound: " << libraries.southbound << '\n';
+  if (libraries.dispatch != dispatch_path || libraries.southbound.empty()) {
+    return absl::FailedPreconditionError("Generation completed, but the expected APK Google Tensor dispatch and libedgetpu_litert.so were not both observed. NPU execution is unverified; inspect logcat.");
+  }
+
+  std::string text;
+  if (response->contains("content") && (*response)["content"].is_array()) {
+    for (const auto& content : (*response)["content"]) {
+      if (content.contains("text") && content["text"].is_string()) {
+        text += content["text"].get<std::string>();
+      }
+    }
+  }
+  if (text.empty()) return absl::InternalError("LiteRT-LM returned a message with no generated text.");
+  auto benchmark = (*conversation)->GetBenchmarkInfo();
+  if (benchmark.ok()) diagnostics << *benchmark << '\n';
+  diagnostics << "Generation completed with NPU requested and Google Tensor/EdgeTPU libraries loaded.\n"
+              << "Confirm DispatchDelegate and SouthBound lines below or in logcat.\n";
+  return text;
+}
+
+char* Copy(const std::string& text) {
+  auto* buffer = static_cast<char*>(malloc(text.size() + 1));
+  if (buffer) memcpy(buffer, text.c_str(), text.size() + 1);
+  return buffer;
+}
+}  // namespace
+
+InferDroidResult* inferdroid_generate(int fd, const char* path, const char* lib_dir,
+                                    const char* cache_dir, const char* prompt, int verbose) {
+  std::lock_guard<std::mutex> lock(inference_mutex);
+  LogCapture capture;
+  std::ostringstream diagnostics;
+  auto generated = Generate(fd, path, lib_dir, cache_dir, prompt, verbose != 0, diagnostics);
+  capture.Stop();
+  if (!generated.ok()) diagnostics << "FAILED: " << generated.status().ToString() << '\n';
+  diagnostics << "\nNative runtime logs:\n" << capture.Text();
+  const std::string text = generated.ok() ? *generated : "";
+  const std::string log = diagnostics.str();
+  auto* result = static_cast<InferDroidResult*>(calloc(1, sizeof(InferDroidResult)));
+  if (!result) return nullptr;
+  result->success = generated.ok();
+  result->text = Copy(text);
+  result->text_size = text.size();
+  result->diagnostics = Copy(log);
+  result->diagnostics_size = log.size();
+  if (!result->text || !result->diagnostics) {
+    inferdroid_result_free(result);
+    return nullptr;
+  }
+  return result;
+}
+
+void inferdroid_result_free(InferDroidResult* result) {
+  if (!result) return;
+  free(result->text);
+  free(result->diagnostics);
+  free(result);
+}

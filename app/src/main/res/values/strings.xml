@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">InferDroid</string>
+    <string name="backend_label">Gemma 4 E2B · Tensor G5 NPU requested</string>
+    <string name="model_help">Select gemma-4-E2B-it_Google_Tensor_G5.litertlm from AIModels/litert-npu. The model stays on the device.</string>
+    <string name="choose_model">Choose model</string>
+    <string name="model_hint">Selected document URI, or an absolute app-readable model path</string>
+    <string name="default_prompt">Hello, briefly introduce yourself.</string>
+    <string name="prompt_hint">Prompt</string>
+    <string name="run">Run</string>
+    <string name="verbose">Verbose native diagnostics</string>
+    <string name="output_label">Generated text</string>
+    <string name="diagnostics_label">Diagnostics</string>
+    <string name="model_ready">Model selected. Ready to run with Tensor G5 NPU requested.</string>
+    <string name="model_temporary">Model selected for this launch. This provider did not grant persistent access.</string>
+    <string name="model_required">Choose the Tensor G5 .litertlm model first.</string>
+    <string name="prompt_required">Enter a non-empty prompt without null characters.</string>
+</resources>

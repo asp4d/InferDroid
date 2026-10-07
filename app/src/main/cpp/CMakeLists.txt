@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(inferdroid_jni LANGUAGES CXX)
+
+if(NOT ANDROID_ABI STREQUAL "arm64-v8a")
+    message(FATAL_ERROR "Milestone 1 supports arm64-v8a only.")
+endif()
+get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../.." ABSOLUTE)
+set(RUNTIME_DIR "${PROJECT_ROOT}/native/artifacts/arm64-v8a")
+foreach(LIBRARY libinferdroid_litertlm.so libLiteRtDispatch_GoogleTensor.so libGemmaModelConstraintProvider.so)
+    if(NOT EXISTS "${RUNTIME_DIR}/${LIBRARY}")
+        message(FATAL_ERROR "Missing ${RUNTIME_DIR}/${LIBRARY}. Run scripts/build-native.sh; see README.md.")
+    endif()
+endforeach()
+
+add_library(inferdroid_litertlm SHARED IMPORTED)
+set_target_properties(inferdroid_litertlm PROPERTIES
+    IMPORTED_LOCATION "${RUNTIME_DIR}/libinferdroid_litertlm.so")
+add_library(inferdroid_jni SHARED native_inference.cpp)
+target_include_directories(inferdroid_jni PRIVATE "${PROJECT_ROOT}/native")
+target_compile_features(inferdroid_jni PRIVATE cxx_std_17)
+target_compile_options(inferdroid_jni PRIVATE -Wall -Wextra -Werror)
+target_link_options(inferdroid_jni PRIVATE -Wl,--no-undefined -Wl,-z,max-page-size=16384)
+target_link_libraries(inferdroid_jni PRIVATE inferdroid_litertlm log)

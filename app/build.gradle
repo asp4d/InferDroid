@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+def machineProperties = new Properties()
+def machinePropertiesFile = rootProject.file('local.properties')
+if (machinePropertiesFile.exists()) {
+    machinePropertiesFile.withInputStream { machineProperties.load(it) }
+}
+
+android {
+    namespace 'dev.inferdroid'
+    compileSdk 36
+    ndkVersion '30.0.14904198-beta1'
+    // Optional unpacked NDK location; omitted when installed using SDK Manager.
+    if (machineProperties.getProperty('inferdroid.ndkPath')) {
+        ndkPath machineProperties.getProperty('inferdroid.ndkPath')
+    }
+
+    defaultConfig {
+        applicationId 'dev.inferdroid'
+        minSdk 31
+        targetSdk 36
+        versionCode 1
+        versionName '0.1.0'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake { arguments '-DANDROID_STL=c++_static' }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    buildTypes {
+        debug { debuggable true }
+        release { minifyEnabled false }
+    }
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
+    // AGP packages the CMake IMPORTED runtime automatically. Stage only the
+    // dynamically loaded dispatch and runtime's DT_NEEDED constraint provider.
+    sourceSets.main.jniLibs.srcDirs = [layout.buildDirectory.dir('generated/runtimeJniLibs')]
+    packaging {
+        jniLibs {
+            // Dispatch needs a real nativeLibraryDir, not a path inside the APK.
+            useLegacyPackaging = true
+            keepDebugSymbols += ['**/libLiteRtDispatch_GoogleTensor.so', '**/libGemmaModelConstraintProvider.so']
+        }
+    }
+}
+
+def stageRuntimeLibraries = tasks.register('stageRuntimeLibraries', Sync) {
+    from(rootProject.file('native/artifacts/arm64-v8a')) {
+        include 'libLiteRtDispatch_GoogleTensor.so', 'libGemmaModelConstraintProvider.so'
+    }
+    into(layout.buildDirectory.dir('generated/runtimeJniLibs/arm64-v8a'))
+}
+tasks.named('preBuild').configure { dependsOn(stageRuntimeLibraries) }

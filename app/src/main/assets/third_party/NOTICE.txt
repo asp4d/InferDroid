@@ -1,0 +1,35 @@
+InferDroid milestone 1 native runtime
+
+LiteRT-LM v0.14.0-alpha.0
+https://github.com/google-ai-edge/LiteRT-LM/tree/0b98b80e1d846af27d10b8ab395645119cb231e4
+Copyright The ODML Authors. Apache License 2.0.
+The InferDroid adapter adapts the initialization/conversation sequence from
+runtime/engine/litert_lm_main.cc. Changes: a C boundary callable through JNI,
+document-descriptor model access, an explicit app native dispatch directory,
+a bounded output length, diagnostics, and loaded-library verification.
+No patches to the upstream LiteRT-LM runtime sources are applied.
+
+LiteRT
+https://github.com/google-ai-edge/LiteRT/tree/43d8b4f20ef743a7c5beb69c365538e726cc20d9
+Copyright Google LLC and contributors. Apache License 2.0.
+libLiteRtDispatch_GoogleTensor.so is built from the pinned upstream source.
+
+libGemmaModelConstraintProvider.so
+Unmodified upstream LiteRT-LM prebuilt/android_arm64 artifact, obtained from
+the above LiteRT-LM commit. SHA-256:
+985ec5778144730b80666a0f71f1e06038eb07dd1a3e941c6ab7f963eda00a8e
+Upstream repository license: Apache License 2.0.
+Its implementation is supplied as a binary at this tag, not rebuilt here.
+
+Root upstream licenses accompany this notice. Native dependency license files
+available in the source build are collected into generated/LICENSES.txt.
+This is a superset including build-only dependencies, not a claim about opaque
+third-party internals of the upstream prebuilt constraint provider.
+
+The proprietary device library /vendor/lib64/libedgetpu_litert.so, Tensor SDK
+compiler, and Gemma model weights are not included in this APK or repository.
+The vendor library is loaded from the physical Pixel through Android's linker.
+
+Build strategy reference:
+https://github.com/bejoyfuuul/litert-lm-tensor-g5-npu/tree/8f26b917dcd0dbe04f142f43a7c24f9141136d7f
+No executable from that project's release is used as InferDroid's engine.

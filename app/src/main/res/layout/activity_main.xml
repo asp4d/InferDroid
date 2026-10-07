@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/content"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:gravity="center_vertical" android:layout_marginBottom="8dp"
+            android:drawableStart="@drawable/inferdroid_logo_header" android:drawablePadding="12dp"
+            android:text="@string/app_name" android:textSize="28sp" android:textStyle="bold" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/backend_label" android:textSize="16sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="@string/model_help" />
+        <Button android:id="@+id/choose_model" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/choose_model" />
+        <EditText android:id="@+id/model_source" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="@string/model_hint"
+            android:inputType="textUri" android:maxLines="4" android:textSize="13sp"
+            android:importantForAutofill="no" />
+        <EditText android:id="@+id/prompt" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="@string/prompt_hint"
+            android:text="@string/default_prompt" android:inputType="textMultiLine|textCapSentences"
+            android:gravity="top" android:minLines="3" android:maxLines="8"
+            android:importantForAutofill="no" />
+        <CheckBox android:id="@+id/verbose" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:checked="true" android:text="@string/verbose" />
+        <Button android:id="@+id/run" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/run" />
+        <TextView android:id="@+id/status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"
+            android:textSize="16sp" android:paddingTop="8dp" android:paddingBottom="8dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/output_label" android:textStyle="bold" />
+        <TextView android:id="@+id/output" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textIsSelectable="true"
+            android:textSize="17sp" android:minHeight="64dp" android:paddingTop="8dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="16dp" android:text="@string/diagnostics_label" android:textStyle="bold" />
+        <TextView android:id="@+id/diagnostics" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:textIsSelectable="true"
+            android:fontFamily="monospace" android:textSize="12sp" android:paddingTop="8dp" />
+    </LinearLayout>
+</ScrollView>
