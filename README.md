@@ -17,9 +17,9 @@ APIs, hashes, storage decisions, and licensing notes.
 
 1. Open this repository's **root directory** in Android Studio.
 2. Use **JDK 17** for Gradle under Settings → Build, Execution, Deployment →
-   Build Tools → Gradle. The workstation also has JDK 25; use 17 for this
-   pinned Gradle/AGP combination.
-3. Install Android SDK Platform **36**, Build Tools **36.0.0**, CMake **3.22.1**,
+   Build Tools → Gradle, matching the command-line examples below.
+3. Install Android SDK Platform **37**, the SDK Build Tools version requested
+   by AGP during sync, CMake **3.22.1**,
    Platform Tools, and NDK **30.0.14904198 (r30-beta1)**. Enable preview/show
    package details in SDK Manager for this exact NDK. Do not replace the pinned
    inference stack with a newer LiteRT dependency.
@@ -30,9 +30,12 @@ APIs, hashes, storage decisions, and licensing notes.
    packages the prepared native runtime. Run launches the UI, but does not
    automatically submit a prompt. Press the in-app Run button when ready.
 
-Gradle Wrapper is pinned to **8.13** with its distribution SHA-256. Android
-Gradle Plugin is **8.13.0**. Application ID: **`dev.inferdroid`**. Only
-**`arm64-v8a`** is packaged. Minimum Android API: 31; compile/target API: 36.
+Gradle Wrapper is pinned to **9.8.1** in
+[`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties).
+Android Gradle Plugin is **9.4.1**, declared in the version catalog
+[`gradle/libs.versions.toml`](gradle/libs.versions.toml). Application ID:
+**`dev.inferdroid`**. Only **`arm64-v8a`** is packaged. Minimum Android API: 31;
+compile API: **37**; target API: **36**.
 
 `local.properties` is machine-specific and ignored. For an SDK-installed NDK:
 
@@ -224,7 +227,11 @@ and run from the repository root:
 python3 scripts/generate-icons.py
 ```
 
-## Verification in this session
+## Initial milestone verification
+
+The results below record the initial milestone, before the Gradle/AGP and
+compile SDK upgrade. Re-run assembly and lint with the current build
+configuration using the commands above.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
 - Java, CMake/JNI, debug APK assembly, and Android lint passed. Lint's two
