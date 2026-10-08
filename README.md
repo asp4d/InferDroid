@@ -2,12 +2,27 @@
   <img src="docs/assets/inferdroid-logo.svg" alt="InferDroid logo" width="180" height="180">
 </p>
 
-# InferDroid — Tensor G5 milestone 1
+# InferDroid
 
 A minimal **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
-E2B NPU path. Press Run to submit `Hello, briefly introduce yourself.` and show
-the response and native diagnostics. Inference runs on a worker thread. No
-HTTP server or future features are implemented.
+E2B NPU path. A Java foreground service owns the native engine and keeps the
+selected model loaded between requests. The test UI shows generated text,
+backend status, and native diagnostics. Inference runs on a worker thread.
+HTTP/OpenAI, ASR/TTS, vision, image generation, and network tools are later work.
+
+**Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
+consecutive Java → JNI → LiteRT-LM runs returned Gemma's introduction to the
+UI. Logs confirmed the packaged Google Tensor dispatch, dispatch delegate
+kernels, and `/vendor/lib64/libedgetpu_litert.so`. The first run took 5.674 s
+including 2.612 s initialization, with 0.27 s TTFT and 17.10 decode tokens/s;
+the repeat took 3.997 s with 18.88 decode tokens/s.
+
+**Milestone 2 passed on the same device on 2026-10-08.** Six real service
+requests returned generated text. Reusing the loaded engine took 2.414–2.535 s
+in the foreground. Background execution, cancellation and recovery, stopping
+during load/generation, notification controls, descriptor release, and reload
+were verified. See [the device verification record](docs/milestone-verification.md)
+and [service lifecycle](docs/service-lifecycle.md).
 
 Read [the original handoff](pixel_local_ai_server_codex_handoff.md) and
 [the verified native strategy](docs/native-integration.md) for exact source
@@ -28,7 +43,7 @@ APIs, hashes, storage decisions, and licensing notes.
 5. Sync Gradle, select the `app` run configuration and the physical Pixel 10.
    Android Studio **Build APK(s)** / **Run** builds the Java and JNI code and
    packages the prepared native runtime. Run launches the UI, but does not
-   automatically submit a prompt. Press the in-app Run button when ready.
+   automatically load a model or submit a prompt. Use the in-app controls below.
 
 Gradle Wrapper is pinned to **9.8.1** in
 [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties).
@@ -169,7 +184,43 @@ Then select it in the document picker. The model is never bundled in the APK.
 If a provider returns a pipe/non-seekable descriptor, the app explains the
 failure; choose the local file through the system Files provider instead.
 
-## Perform the first real inference when ready
+## Use the persistent inference service
+
+1. Select the G5 model through **Choose model**. An existing saved selection
+   can be reused after an APK update.
+2. Tap **Load model** to initialize the NPU without submitting a prompt.
+   Alternatively, **Run** loads it automatically when necessary. On Android
+   13+, the first use asks for notification permission so the foreground
+   service status and controls can be displayed.
+3. Leave `Hello, briefly introduce yourself.` as the prompt and tap **Run**.
+   Requests are serialized; another Run is disabled while work is active.
+4. The model stays loaded after generation. You can leave the Activity and
+   return to its current status/output while the foreground service runs.
+5. **Cancel** requests cancellation of generation through upstream
+   `Conversation::CancelProcess()`. A fresh conversation is used for each
+   request, so cancellation does not reuse a partially updated session.
+6. **Unload / Stop** cancels active generation, waits for native work to drain,
+   releases the model/descriptor, and removes the foreground notification.
+   These controls are also available in the notification where applicable.
+
+Status distinguishes **NPU selected**, **NPU initialized**, and **generation
+verified**. Initialization alone does not claim a successful NPU execution.
+Failures remain visible and never trigger a CPU retry.
+
+NPU initialization has no upstream cancellation API at this pin. Unload during
+loading waits for initialization to return, then releases the engine without
+starting generation. A partial wake lock is held only during native work,
+with a ten-minute bound; the loaded idle model does not keep the CPU awake.
+If Android kills the process, reopening the app returns to an unloaded engine;
+the service does not automatically reload a 3 GB model at boot or after a kill.
+
+The private service uses Android's `specialUse` foreground type with a manifest
+explanation for local inference, as described in the
+[foreground service documentation](https://developer.android.com/develop/background-work/services/fgs/service-types#special-use).
+Notification denial does not grant additional privileges: Android can hide the
+notification, and the app shows that actual permission state.
+
+## Capture Tensor G5 evidence
 
 Keep **Verbose native diagnostics** enabled for this first test. Start a full
 capture before pressing Run so initialization, vendor, and crash messages are
@@ -180,20 +231,20 @@ adb logcat -v threadtime > /tmp/inferdroid-first-test.log
 ```
 
 In the app, leave `Hello, briefly introduce yourself.` as the prompt and tap
-**Run**. Keep the app visible during this milestone's foreground test. Generated
-text and diagnostics appear when the native call returns. Stop logcat with
+**Run**. Generated text and diagnostics appear when the native call returns.
+Stop logcat with
 Ctrl+C after the run, then inspect:
 
 ```bash
-rg 'GoogleTensor|DispatchDelegate|SouthBound|libedgetpu_litert|InferDroid|FATAL|Fatal signal' /tmp/inferdroid-first-test.log
+rg 'GoogleTensor|dispatch_delegate_kernel|DispatchDelegate|SouthBound|libedgetpu_litert|InferDroid|FATAL|Fatal signal' /tmp/inferdroid-first-test.log
 ```
 
-Expected evidence follows the handoff:
+The APK's observed evidence is equivalent to the handoff's dispatch route:
 
 ```text
 Loading shared library: .../libLiteRtDispatch_GoogleTensor.so
 Found GoogleTensorOptions
-Replacing ... with delegate (DispatchDelegate)
+[dispatch_delegate_kernel.cc:203] Found async dispatch capabilities
 SouthBound symbols resolved by 'libedgetpu_litert.so'
 ```
 
@@ -209,7 +260,8 @@ If allocation specifically fails for the large dma-buf, the reference project
 recommends closing other apps or rebooting and testing after boot. This is an
 allocation diagnostic, not a claim that GrapheneOS or Tensor G5 cannot work.
 
-No Git commit is created before the first successful physical NPU test.
+The initial project and build-tool upgrade are already in Git. The physical
+NPU verification above establishes the milestone 1 baseline before service work.
 
 ## Branding assets
 
@@ -227,21 +279,44 @@ and run from the repository root:
 python3 scripts/generate-icons.py
 ```
 
-## Initial milestone verification
+## Build and device verification
 
-The results below record the initial milestone, before the Gradle/AGP and
-compile SDK upgrade. Re-run assembly and lint with the current build
-configuration using the commands above.
+Assembly and lint were rerun with the current Gradle 9.8.1 / AGP 9.4.1 /
+compile SDK 37 configuration on 2026-10-08.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
-- Java, CMake/JNI, debug APK assembly, and Android lint passed. Lint's two
-  warnings are intentional arm64-only targeting and availability of newer build
-  tools; the required versions remain pinned.
-- APK signature verified. APK inspection confirmed exactly four arm64 native
-  libraries and no `.litertlm` model. Initial debug APK is approximately 15 MB.
+- Java, CMake/JNI, debug APK assembly, and Android lint passed (0 errors).
+  Lint's two warnings are intentional arm64-only targeting and target API 36
+  below the newest platform. The native runtime versions remain pinned.
+- APK inspection confirmed exactly four arm64 native libraries and no
+  `.litertlm` model. The service debug APK is approximately 25 MB.
 - `adb install -r` succeeded on the connected Pixel 10. `MainActivity` launched
   successfully and its UI was inspected. Android confirmed extracted native
   libraries, arm64 ABI, and `libedgetpu_litert.so` in the app's vendor library
   access list. Device page size is 4096 bytes.
-- **First app inference has not been run.** Select the existing model and press
-  Run with logcat capture enabled to validate the complete app/NPU path.
+- **Milestone 1: two physical app inferences passed**, producing text in Java
+  with Google Tensor delegate and EdgeTPU evidence.
+- **Milestone 2: six real foreground-service inferences passed**, including
+  generation while the Activity was backgrounded and successful reuse after
+  cancellation. One engine initialization served the first four successful
+  requests and a cancelled request. Unload removed the model's memory mappings
+  and file descriptors; reload worked afterward. No inference wake lock was
+  held while the model was idle. Details are in the verification record.
+- **Three device instrumentation tests passed** for serialization/reuse,
+  concurrent cancellation/recovery, and stopping during initialization. These
+  use a fake engine to exercise lifecycle timing; real NPU execution was
+  verified separately through the app UI.
+
+To rerun the lifecycle tests on a connected Android device:
+
+```bash
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
+```
+
+Expected result: `Lifecycle tests: 3 passed, 0 failed.` The runner uses only
+Android platform APIs and adds no test dependencies or fake backend to the
+application APK. Instrumentation restarts the target app process; reopen
+InferDroid afterward and press Run for a real NPU request.

@@ -50,11 +50,16 @@ The adapter uses the following **existing** APIs at the pinned commit:
 5. `SessionConfig::CreateDefault()`,
    `ConversationConfig::Builder().SetSessionConfig(...).Build(*engine)`, and
    `Conversation::Create(*engine, config)` create the conversation.
-6. [`Conversation::SendMessage`](https://github.com/google-ai-edge/LiteRT-LM/blob/0b98b80e1d846af27d10b8ab395645119cb231e4/runtime/conversation/conversation.h)
-   is the blocking counterpart of the CLI's async call. The message is
+6. [`Conversation::SendMessageAsync`](https://github.com/google-ai-edge/LiteRT-LM/blob/0b98b80e1d846af27d10b8ab395645119cb231e4/runtime/conversation/conversation.h)
+   plus `Engine::WaitUntilDone(Engine::kDefaultTimeout)` follows the CLI's
+   async call and drain. The message is
    `{"role":"user","content":[{"type":"text","text":prompt}]}`. The
    model metadata supplies the chat template. The Java executor thread waits
-   for the complete response; the Android main thread remains free.
+   for the complete response and reads `Conversation::GetHistory()` after
+   callbacks finish; the Android main thread remains free.
+7. `Conversation::CancelProcess()` forwards to the pinned
+   `SessionAdvanced::CancelProcess()` and its execution manager. Cancellation
+   is issued from a separate Java control executor while generation waits.
 
 The original CLI's optional sampler-flags patch is irrelevant here: the known
 successful command did not override sampling. InferDroid preserves the default
@@ -109,7 +114,8 @@ See [`sb_api_late_binding.cc`](https://github.com/google-ai-edge/LiteRT/blob/43d
 The Java document picker uses `ACTION_OPEN_DOCUMENT` and keeps read permission.
 The returned descriptor must be a seekable, non-empty local file. Native code
 duplicates it with `F_DUPFD_CLOEXEC` and gives ownership of the duplicate to
-upstream `ScopedFile`; Java closes its original when the request finishes.
+upstream `ScopedFile`; Java closes its original when loading finishes. The
+loaded native engine retains its model assets and descriptor until unload.
 Explicit dispatch/cache directories remove the CLI's dependence on the model
 file's parent directory. This avoids a second 3 GB model copy and requires no
 broad storage permission. A raw absolute path is also supported if app-readable.
@@ -152,16 +158,35 @@ the APK. The proprietary vendor runtime and Tensor SDK compiler are not copied
 or redistributed. No compiler/SDK beta access is needed for this already
 AOT-compiled model and the public dispatch source.
 
-## Scope and first-test boundary
+## Service and native lifecycle
 
 `InferenceEngine`, `GenerationRequest`, `GenerationResult`, and `EngineManager`
 keep the Java application independent of JNI, HTTP schemas, and future tools.
-The manager serializes work on an application-owned executor and retains state
-across Activity recreation. Each request currently creates and releases an
-engine/conversation. There is no service, network server, ASR/TTS, vision, image
-generation, or ToolManager implementation.
+`InferenceService` owns the manager and its serialized worker. The Activity
+binds while visible and releases its listener on stop. Loading/generation starts
+the foreground service with a notification before native work begins. The model
+remains resident across requests and Activity recreation/backgrounding; a fresh
+conversation is created and discarded for every request.
 
-The milestone remains uncommitted until the physical first inference produces
-text and matching NPU evidence. The earlier standalone inference is accepted
-as ground truth; a successful APK build is not reported as another device
-inference success.
+The custom C boundary exposes load/generate/cancel/unload. Opaque numeric IDs
+refer to native engines through a synchronized registry of shared owners;
+Java never receives a C++ pointer. Cancellation includes a request ID so a
+delayed cancel cannot affect the next request. The native conversation remains
+alive until `Engine::WaitUntilDone` drains its tasks and the terminal callback
+arrives. As in upstream `Conversation::SendMessage`, the terminal notification
+is awaited before reading the completed history or releasing the conversation.
+Unload drains the Java cancellation executor too, then destroys the engine off
+the main thread. JNI loading failures release any newly allocated native engine.
+
+The service is private (`exported=false`), uses `specialUse` on Android 14+,
+and requests only foreground-service, notification, and work-time wake-lock
+permissions. The wake lock is released between operations. `START_NOT_STICKY`
+means a process kill does not silently reinitialize the large model. There is
+no HTTP server, ASR/TTS, vision, image generation, or ToolManager implementation.
+
+Two milestone 1 APK runs and six milestone 2 service requests passed on
+2026-10-08, returning generated text to Java with matching dispatch-kernel and
+vendor-library evidence. Cancellation, background execution, native
+descriptor/mapping release, and reload were also verified on the Pixel. See
+[the verification record](milestone-verification.md). The original standalone
+success remains the baseline; these results verify that route inside the APK.

@@ -9,11 +9,13 @@
 #include <unistd.h>
 
 #include <chrono>
+#include <condition_variable>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -129,10 +131,43 @@ int FindLibraries(dl_phdr_info* info, size_t, void* state) {
   return 0;
 }
 
-absl::StatusOr<std::string> Generate(int fd, const char* path,
-                                    const char* library_dir, const char* cache_dir,
-                                    const char* prompt, bool verbose,
-                                    std::ostringstream& diagnostics) {
+struct RuntimeEngine {
+  std::unique_ptr<litert::lm::Engine> engine;
+  std::string dispatch_path;
+  std::mutex request_mutex;
+  litert::lm::Conversation* active_conversation = nullptr;
+  uint64_t active_request = 0;
+  uint64_t cancelled_request = 0;
+};
+
+// JNI receives opaque IDs, never dereferenceable pointers. A lookup retains the
+// engine during cancellation, so unload cannot race a stale Java handle.
+std::mutex engines_mutex;
+std::map<uint64_t, std::shared_ptr<RuntimeEngine>> engines;
+uint64_t next_engine_handle = 1;
+
+std::shared_ptr<RuntimeEngine> FindEngine(uint64_t handle) {
+  std::lock_guard<std::mutex> lock(engines_mutex);
+  auto found = engines.find(handle);
+  return found == engines.end() ? nullptr : found->second;
+}
+
+absl::Status VerifyLibraries(const RuntimeEngine& runtime,
+                             std::ostringstream& diagnostics) {
+  LoadedLibraries libraries;
+  dl_iterate_phdr(FindLibraries, &libraries);
+  diagnostics << "Loaded Google Tensor dispatch: " << libraries.dispatch << '\n'
+              << "Loaded EdgeTPU southbound: " << libraries.southbound << '\n';
+  if (libraries.dispatch != runtime.dispatch_path || libraries.southbound.empty()) {
+    return absl::FailedPreconditionError(
+        "The expected APK Google Tensor dispatch and libedgetpu_litert.so were not both observed. No CPU retry is attempted.");
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::shared_ptr<RuntimeEngine>> Load(int fd, const char* path,
+    const char* library_dir, const char* cache_dir, bool verbose,
+    std::ostringstream& diagnostics) {
   using namespace litert::lm;
   SetMinLogSeverity(verbose ? LogSeverity::kInfo : LogSeverity::kWarning);
   diagnostics << "LiteRT-LM v0.14.0-alpha.0 / 0b98b80e1d846af27d10b8ab395645119cb231e4\n"
@@ -175,31 +210,108 @@ absl::StatusOr<std::string> Generate(int fd, const char* path,
   diagnostics << "Engine init: " << std::chrono::duration_cast<std::chrono::milliseconds>(
       std::chrono::steady_clock::now() - init_start).count() << " ms\n";
 
+  auto runtime = std::make_shared<RuntimeEngine>();
+  runtime->engine = std::move(*engine);
+  runtime->dispatch_path = dispatch_path;
+  auto verified = VerifyLibraries(*runtime, diagnostics);
+  if (!verified.ok()) return verified;
+  diagnostics << "NPU engine initialized and retained. Execution is verified after a successful request.\n";
+  return runtime;
+}
+
+absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runtime,
+    uint64_t request_id, const char* prompt, bool verbose,
+    std::ostringstream& diagnostics) {
+  using namespace litert::lm;
+  SetMinLogSeverity(verbose ? LogSeverity::kInfo : LogSeverity::kWarning);
+  diagnostics << "Reusing loaded NPU engine; fresh conversation for this request.\n"
+              << "CPU retry is disabled.\n";
   auto session_config = SessionConfig::CreateDefault();
   session_config.SetMaxOutputTokens(256);
-  auto config = ConversationConfig::Builder().SetSessionConfig(session_config).Build(**engine);
+  auto config = ConversationConfig::Builder().SetSessionConfig(session_config).Build(*runtime->engine);
   if (!config.ok()) return config.status();
-  auto conversation = Conversation::Create(**engine, *config);
+  auto conversation = Conversation::Create(*runtime->engine, *config);
   if (!conversation.ok()) return conversation.status();
 
-  // Exactly the CLI's role/content structure; model metadata supplies templating.
+  // Matches the pinned CLI's async call plus Engine::WaitUntilDone. Keep the
+  // conversation alive until tasks/callbacks finish, and discard it after every
+  // request (especially cancellation); retain only the reusable engine.
   const nlohmann::json message = {
       {"role", "user"},
       {"content", nlohmann::json::array({{{"type", "text"}, {"text", prompt}}})}};
-  auto response = (*conversation)->SendMessage(message);
-  if (!response.ok()) return response.status();
-
-  LoadedLibraries libraries;
-  dl_iterate_phdr(FindLibraries, &libraries);
-  diagnostics << "Loaded Google Tensor dispatch: " << libraries.dispatch << '\n'
-              << "Loaded EdgeTPU southbound: " << libraries.southbound << '\n';
-  if (libraries.dispatch != dispatch_path || libraries.southbound.empty()) {
-    return absl::FailedPreconditionError("Generation completed, but the expected APK Google Tensor dispatch and libedgetpu_litert.so were not both observed. NPU execution is unverified; inspect logcat.");
+  struct CallbackState {
+    std::mutex mutex;
+    std::condition_variable completed;
+    bool done = false;
+    absl::Status status;
+  };
+  auto callback = std::make_shared<CallbackState>();
+  absl::Status started;
+  {
+    std::lock_guard<std::mutex> lock(runtime->request_mutex);
+    if (runtime->cancelled_request == request_id) {
+      return absl::CancelledError("Request cancelled before generation started.");
+    }
+    runtime->active_request = request_id;
+    runtime->active_conversation = conversation->get();
+    started = (*conversation)->SendMessageAsync(message,
+        [callback](absl::StatusOr<Message> chunk) {
+          if (!chunk.ok() || chunk->is_null()) {
+            std::lock_guard<std::mutex> lock(callback->mutex);
+            if (!chunk.ok()) callback->status = chunk.status();
+            callback->done = true;
+            callback->completed.notify_all();
+          }
+        });
+  }
+  auto finished = started.ok()
+      ? runtime->engine->WaitUntilDone(Engine::kDefaultTimeout) : started;
+  if (!finished.ok()) {
+    (*conversation)->CancelProcess();
+    // The upstream timeout is ten minutes. Drain cancellation before releasing
+    // the conversation whose callbacks are owned by the execution manager.
+    auto drained = runtime->engine->WaitUntilDone(Engine::kDefaultTimeout);
+    if (!drained.ok()) {
+      __android_log_write(ANDROID_LOG_FATAL, "InferDroid",
+          "NPU cancellation did not drain. Terminating before releasing live callback state.");
+      std::abort();
+    }
+  }
+  if (started.ok()) {
+    // As in upstream SendMessage, task draining is followed by the terminal
+    // callback. It appends the complete response before emitting a null chunk.
+    std::unique_lock<std::mutex> lock(callback->mutex);
+    if (!callback->completed.wait_for(lock, std::chrono::minutes(10),
+                                     [&] { return callback->done; })) {
+      __android_log_write(ANDROID_LOG_FATAL, "InferDroid", "NPU terminal callback timed out.");
+      std::abort();
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(runtime->request_mutex);
+    runtime->active_conversation = nullptr;
+    runtime->active_request = 0;
+    if (runtime->cancelled_request == request_id) {
+      return absl::CancelledError("Generation cancelled; the model remains loaded.");
+    }
+  }
+  if (!finished.ok()) return finished;
+  {
+    std::lock_guard<std::mutex> lock(callback->mutex);
+    if (!callback->status.ok()) return callback->status;
+  }
+  auto verified = VerifyLibraries(*runtime, diagnostics);
+  if (!verified.ok()) return verified;
+  auto history = (*conversation)->GetHistory();
+  if (history.empty()) return absl::InternalError("No response in conversation history.");
+  const auto& response = history.back();
+  if (!response.contains("role") || response["role"] == "user") {
+    return absl::InternalError("No completed model response in conversation history.");
   }
 
   std::string text;
-  if (response->contains("content") && (*response)["content"].is_array()) {
-    for (const auto& content : (*response)["content"]) {
+  if (response.contains("content") && response["content"].is_array()) {
+    for (const auto& content : response["content"]) {
       if (content.contains("text") && content["text"].is_string()) {
         text += content["text"].get<std::string>();
       }
@@ -209,7 +321,7 @@ absl::StatusOr<std::string> Generate(int fd, const char* path,
   auto benchmark = (*conversation)->GetBenchmarkInfo();
   if (benchmark.ok()) diagnostics << *benchmark << '\n';
   diagnostics << "Generation completed with NPU requested and Google Tensor/EdgeTPU libraries loaded.\n"
-              << "Confirm DispatchDelegate and SouthBound lines below or in logcat.\n";
+              << "Confirm dispatch_delegate_kernel and SouthBound evidence in the load logs or logcat.\n";
   return text;
 }
 
@@ -218,22 +330,14 @@ char* Copy(const std::string& text) {
   if (buffer) memcpy(buffer, text.c_str(), text.size() + 1);
   return buffer;
 }
-}  // namespace
-
-InferDroidResult* inferdroid_generate(int fd, const char* path, const char* lib_dir,
-                                    const char* cache_dir, const char* prompt, int verbose) {
-  std::lock_guard<std::mutex> lock(inference_mutex);
-  LogCapture capture;
-  std::ostringstream diagnostics;
-  auto generated = Generate(fd, path, lib_dir, cache_dir, prompt, verbose != 0, diagnostics);
-  capture.Stop();
-  if (!generated.ok()) diagnostics << "FAILED: " << generated.status().ToString() << '\n';
-  diagnostics << "\nNative runtime logs:\n" << capture.Text();
-  const std::string text = generated.ok() ? *generated : "";
+InferDroidResult* Result(const absl::Status& status, const std::string& text,
+                        const std::ostringstream& diagnostics, uint64_t handle = 0) {
   const std::string log = diagnostics.str();
   auto* result = static_cast<InferDroidResult*>(calloc(1, sizeof(InferDroidResult)));
   if (!result) return nullptr;
-  result->success = generated.ok();
+  result->success = status.ok();
+  result->cancelled = absl::IsCancelled(status);
+  result->engine_handle = handle;
   result->text = Copy(text);
   result->text_size = text.size();
   result->diagnostics = Copy(log);
@@ -243,6 +347,70 @@ InferDroidResult* inferdroid_generate(int fd, const char* path, const char* lib_
     return nullptr;
   }
   return result;
+}
+}  // namespace
+
+InferDroidResult* inferdroid_engine_load(int fd, const char* path,
+    const char* lib_dir, const char* cache_dir, int verbose) {
+  std::lock_guard<std::mutex> lock(inference_mutex);
+  LogCapture capture;
+  std::ostringstream diagnostics;
+  auto loaded = Load(fd, path, lib_dir, cache_dir, verbose != 0, diagnostics);
+  capture.Stop();
+  if (!loaded.ok()) diagnostics << "FAILED: " << loaded.status().ToString() << '\n';
+  diagnostics << "\nNative load logs:\n" << capture.Text();
+  uint64_t handle = 0;
+  if (loaded.ok()) {
+    std::lock_guard<std::mutex> registry_lock(engines_mutex);
+    handle = next_engine_handle++;
+    engines.emplace(handle, *loaded);
+  }
+  auto* result = Result(loaded.status(), "", diagnostics, handle);
+  if (!result && handle) {
+    std::lock_guard<std::mutex> registry_lock(engines_mutex);
+    engines.erase(handle);
+  }
+  return result;
+}
+
+InferDroidResult* inferdroid_engine_generate(uint64_t handle, uint64_t request_id,
+    const char* prompt, int verbose) {
+  std::lock_guard<std::mutex> lock(inference_mutex);
+  LogCapture capture;
+  std::ostringstream diagnostics;
+  auto runtime = FindEngine(handle);
+  absl::StatusOr<std::string> generated = runtime
+      ? Generate(runtime, request_id, prompt, verbose != 0, diagnostics)
+      : absl::StatusOr<std::string>(absl::FailedPreconditionError("No NPU engine is loaded."));
+  capture.Stop();
+  if (!generated.ok()) diagnostics << generated.status().ToString() << '\n';
+  diagnostics << "\nNative request logs:\n" << capture.Text();
+  return Result(generated.status(), generated.ok() ? *generated : "", diagnostics);
+}
+
+void inferdroid_engine_cancel(uint64_t handle, uint64_t request_id) {
+  auto runtime = FindEngine(handle);
+  if (!runtime || !request_id) return;
+  std::lock_guard<std::mutex> lock(runtime->request_mutex);
+  runtime->cancelled_request = request_id;
+  if (runtime->active_request == request_id && runtime->active_conversation) {
+    runtime->active_conversation->CancelProcess();
+  }
+}
+
+void inferdroid_engine_unload(uint64_t handle) {
+  std::lock_guard<std::mutex> lock(inference_mutex);
+  std::shared_ptr<RuntimeEngine> runtime;
+  {
+    std::lock_guard<std::mutex> registry_lock(engines_mutex);
+    auto found = engines.find(handle);
+    if (found == engines.end()) return;
+    runtime = std::move(found->second);
+    engines.erase(found);
+  }
+  // Destruction and model unmapping run on Java's worker, never the main thread.
+  runtime.reset();
+  __android_log_write(ANDROID_LOG_INFO, "InferDroid", "NPU engine unloaded");
 }
 
 void inferdroid_result_free(InferDroidResult* result) {

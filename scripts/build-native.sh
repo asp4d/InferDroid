@@ -52,9 +52,11 @@ cd "$SRC"
     @litert//litert/vendors/google_tensor/dispatch:dispatch_api_so
 
 mkdir -p "$OUT" "$PROJECT_ROOT/app/src/main/assets/third_party"
-cp bazel-bin/inferdroid/libinferdroid_litertlm.so "$OUT/"
-cp bazel-bin/external/litert/litert/vendors/google_tensor/dispatch/libLiteRtDispatch_GoogleTensor.so "$OUT/"
-cp "$GEMMA" "$OUT/"
+# Bazel outputs can be read-only. Replace them as writable APK inputs so the
+# next source build does not fail trying to overwrite its previous artifacts.
+install -m 0644 bazel-bin/inferdroid/libinferdroid_litertlm.so "$OUT/"
+install -m 0644 bazel-bin/external/litert/litert/vendors/google_tensor/dispatch/libLiteRtDispatch_GoogleTensor.so "$OUT/"
+install -m 0644 "$GEMMA" "$OUT/"
 cp LICENSE "$PROJECT_ROOT/app/src/main/assets/third_party/LiteRT-LM-LICENSE.txt"
 OUTPUT_BASE="$("$BAZEL" --output_user_root="$BUILD_ROOT" info output_base)"
 cp "$OUTPUT_BASE/external/litert/LICENSE" "$PROJECT_ROOT/app/src/main/assets/third_party/LiteRT-LICENSE.txt"
