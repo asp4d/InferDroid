@@ -1,0 +1,11 @@
+[versions]
+agp = "9.4.1"
+foojay-resolver = "1.0.0"
+
+[libraries]
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+foojay-resolver = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "foojay-resolver" }
+
+

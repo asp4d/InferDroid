@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.application'
+    alias(libs.plugins.android.application)
 }
 
 def machineProperties = new Properties()
@@ -10,7 +10,7 @@ if (machinePropertiesFile.exists()) {
 
 android {
     namespace 'dev.inferdroid'
-    compileSdk 36
+    compileSdk 37
     ndkVersion '30.0.14904198-beta1'
     // Optional unpacked NDK location; omitted when installed using SDK Manager.
     if (machineProperties.getProperty('inferdroid.ndkPath')) {
