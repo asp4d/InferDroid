@@ -28,6 +28,12 @@ Read [the original handoff](pixel_local_ai_server_codex_handoff.md) and
 [the verified native strategy](docs/native-integration.md) for exact source
 APIs, hashes, storage decisions, and licensing notes.
 
+## Acknowledgements & Development
+
+This project was architected, verified on physical hardware, and maintained by Alessandro Spadini, 
+with code generation and refactoring assisted by AI development tools (IntelliJ IDEA / 
+Android Studio / OpenAI Codex / Gemini).
+
 ## Open and build in Android Studio
 
 1. Open this repository's **root directory** in Android Studio.
@@ -320,3 +326,16 @@ Expected result: `Lifecycle tests: 3 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
 InferDroid afterward and press Run for a real NPU request.
+
+## Author
+
+Developed by **Alessandro Spadini**:
+- **Website**: [spadini.dev](https://spadini.dev)
+- **GitHub**: [@asp4d](https://github.com/asp4d)
+
+## License
+
+Copyright © 2026 Alessandro Spadini.
+
+This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+

@@ -28,6 +28,12 @@ android {
         externalNativeBuild {
             cmake { arguments '-DANDROID_STL=c++_static' }
         }
+        buildConfigField "String", "AUTHOR_NAME", "\"Alessandro Spadini\""
+        buildConfigField "String", "AUTHOR_WEBSITE", "\"https://spadini.dev\""
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     compileOptions {
