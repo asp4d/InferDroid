@@ -144,4 +144,117 @@ matching service/descriptor/mapping captures. Logcat capture was stopped after
 verification. The installed app was left visible with the final generated
 introduction and its verified NPU model loaded.
 
-Milestones 1 and 2 are complete. Milestone 3 (HTTP/OpenAI server) has not started.
+## Milestone 3 — passed, 2026-10-10
+
+Device/model/runtime pins remain the same as milestones 1 and 2. The adapter
+was rebuilt from the pinned sources to support history, sampling parameters,
+incremental text callbacks, and upstream usage measurements. The Android
+application and test APK were compiled with **JBR/JDK 21.0.11**; the Java
+compiler toolchain is now pinned to 21, retaining source/target compatibility
+17. Gradle 9.8.1, AGP 9.4.1, compile SDK 37, target SDK 36, and NDK r30-beta1
+remain unchanged. Assembly, CMake/JNI, and lint passed with zero errors and
+the two previously documented warnings.
+
+The milestone 2 installation initially had GrapheneOS Network permission
+denied after this update added `INTERNET`. Installed-package inspection
+confirmed the denial. Enabling that permission in the owner profile allowed
+localhost sockets. The app now explains this case on server start, and setup
+instructions are in [local-api.md](local-api.md#grapheneos-and-client-permissions).
+Other profiles were not changed.
+
+### Real HTTP/NPU requests
+
+The server was started through the Activity with authentication enabled at
+`127.0.0.1:8080`. Host clients used a loopback ADB forward on port 18080 and
+read the local key without printing it. Model discovery returned the single
+Gemma model. The following completed requests used the actual service and
+JNI/NPU engine, not the instrumentation fake:
+
+| Request | Host wall time | Prefill / decode tokens | Result |
+| --- | --- | --- | --- |
+| First non-streaming introduction, including automatic load | 6.848 s | 15 / 44 | Same introduction as milestone 1; `finish_reason: stop` |
+| Live SSE introduction, retained engine | 2.675 s | 15 / 44 | 43 non-empty text deltas; first content at 0.218 s; same completed text |
+| System + user + assistant + user history, while backgrounded | 1.265 s | 42 / 6 | `Your name is Ada.`; temperature 0, top-p 0.8, seed 42 accepted |
+| Eight-token completion cap, while backgrounded | 1.314 s | 15 / 8 | `Hello! I am Gemma 4,`; `finish_reason: length` |
+| Eight-token request after native disconnect cancellation | 1.243 s | 15 / 8 | Successful reuse; `finish_reason: length` |
+
+SSE used a role delta, incremental native content, a terminal finish delta,
+an empty-choices usage event, and `[DONE]`. Usage was measured by LiteRT-LM;
+no character-based estimate was added. Host timing includes HTTP overhead,
+and these measurements are functional checks rather than controlled benchmarks.
+
+A longer counting stream was disconnected after its first text chunk.
+A concurrent completion returned **429 / engine_busy**. Native logcat showed
+`SessionAdvanced::CancelProcess`; a retry was rejected until cancellation
+drained, then succeeded on the same engine. Recovery including the new short
+completion finished 1.593 s after disconnect. The first engine served all
+five completed requests and the cancelled stream with one initialization.
+
+Android reported `isForeground=true`, `specialUse`, and `hasBound=false`
+while the Activity was backgrounded and the HTTP requests completed. Native
+evidence from the real requests included:
+
+```text
+Creating LiteRT-LM NPU engine
+Loading shared library: /data/app/.../lib/arm64/libLiteRtDispatch_GoogleTensor.so
+Found GoogleTensorOptions
+[dispatch_delegate_kernel.cc:203] Found async dispatch capabilities
+SouthBound symbols resolved by 'libedgetpu_litert.so'
+JNI start; backend=NPU
+session_advanced.h:173] SessionAdvanced::CancelProcess
+NPU engine unloaded
+```
+
+There was no CPU retry or app crash. The same known generic/contradictory
+dispatch warnings appeared alongside successful NPU generation.
+
+### Final APK and app controls
+
+After the final Java changes, both APKs were rebuilt and installed, and all
+ten instrumentation tests passed again. The Activity controls were then used
+to select **port 8091**, enable **CORS**, and start the actual service. Model
+discovery and browser preflight passed on that port. An authenticated real
+NPU introduction completed in **5.375 s**, including loading, with 15 prefill
+and 44 decode tokens.
+
+**Stop server** closed the listener. Pressing the UI **Run** afterward reused
+the same native engine and completed in **2,526 ms**. **Unload / Stop** released
+the model mappings and removed foreground service status. The saved defaults
+were restored to port **8080**, authentication **enabled**, and CORS **off**.
+The app was left visible with the model unloaded and HTTP listener stopped.
+Temporary host ADB forwards and logcat capture were removed/stopped.
+
+Final debug APK: **15,648,103 bytes**, with exactly the same four arm64 native
+library names as milestone 2, and no model weights. SHA-256:
+
+```text
+b7861e7e3a8962e9d984b1c7f4992f81f23e90efd01744b93d0295413e48f8c2
+```
+
+Adapter source SHA-256:
+
+```text
+0a349d35807bfd85f6b3c799023b6d161c6dadb6e31df409cfe0a3a3c36246b2
+```
+
+### Reproducible instrumentation
+
+The platform-only runner reports **`Lifecycle/API tests: 10 passed, 0 failed.`**
+Cases: `busyAndReuse`, `cancelAndReuse`, `stopDuringLoad`,
+`splitUtf8Streaming`, `apiAuthenticationAndValidation`,
+`apiChatHistoryAndErrors`, `apiLiveStreaming`,
+`apiBusyDisconnectAndRecovery`, `apiCorsAndPortConflict`, and
+`apiStopAndRestart`. These exercise actual loopback sockets, Android threading,
+and the shared manager, using a test-only fake engine for controlled timing.
+They verify auth, bounded/strict parsing, history and sampling translation,
+live delivery before completion, Unicode boundaries, error shapes, UI/API
+contention, request-owned cancellation, restart/rotation, and optional auth.
+The real HTTP requests above separately establish NPU execution. Reproduction
+commands are in the README.
+
+Host evidence is retained temporarily in `/tmp/inferdroid-m3-real.log` and
+the matching `/tmp/inferdroid-m3-*.xml` UI captures. Keys were neither printed
+nor written to tracked artifacts. Third-party client apps still need individual
+compatibility testing; no claim is made for Agora, FitBuddy, or RPClient.
+
+Milestones 1, 2, and 3 are complete. Milestone 4 (local ASR) has not started.

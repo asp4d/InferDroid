@@ -6,9 +6,11 @@
 
 A minimal **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
 E2B NPU path. A Java foreground service owns the native engine and keeps the
-selected model loaded between requests. The test UI shows generated text,
-backend status, and native diagnostics. Inference runs on a worker thread.
-HTTP/OpenAI, ASR/TTS, vision, image generation, and network tools are later work.
+selected model loaded between requests and serves an authenticated
+**OpenAI-compatible localhost API**, including live SSE streaming. The UI
+shows generated text, backend status, native diagnostics, and server controls.
+Inference runs on a worker thread. ASR/TTS, vision, image generation, and
+network tools are later work.
 
 **Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
 consecutive Java → JNI → LiteRT-LM runs returned Gemma's introduction to the
@@ -24,6 +26,14 @@ during load/generation, notification controls, descriptor release, and reload
 were verified. See [the device verification record](docs/milestone-verification.md)
 and [service lifecycle](docs/service-lifecycle.md).
 
+**Milestone 3 passed on the same device on 2026-10-10.** Real HTTP and live
+SSE completions, conversation history, output caps, background serving, busy
+responses, and cancellation/recovery used the retained Tensor G5 engine.
+The live introduction arrived in 43 text chunks, with first content at
+0.218 s and total time 2.675 s. Ten lifecycle/API instrumentation tests also
+passed. See [local API usage and limits](docs/local-api.md) and
+[the verification record](docs/milestone-verification.md).
+
 Read [the original handoff](pixel_local_ai_server_codex_handoff.md) and
 [the verified native strategy](docs/native-integration.md) for exact source
 APIs, hashes, storage decisions, and licensing notes.
@@ -37,8 +47,10 @@ Android Studio / OpenAI Codex / Gemini).
 ## Open and build in Android Studio
 
 1. Open this repository's **root directory** in Android Studio.
-2. Use **JDK 17** for Gradle under Settings → Build, Execution, Deployment →
-   Build Tools → Gradle, matching the command-line examples below.
+2. Use **JDK 21** for Gradle under Settings → Build, Execution, Deployment →
+   Build Tools → Gradle, matching the command-line examples below. The Java
+   compiler toolchain is pinned to 21; source/bytecode compatibility stays at
+   Java 17 and available Java APIs remain controlled by Android's SDK.
 3. Install Android SDK Platform **37**, the SDK Build Tools version requested
    by AGP during sync, CMake **3.22.1**,
    Platform Tools, and NDK **30.0.14904198 (r30-beta1)**. Enable preview/show
@@ -49,7 +61,8 @@ Android Studio / OpenAI Codex / Gemini).
 5. Sync Gradle, select the `app` run configuration and the physical Pixel 10.
    Android Studio **Build APK(s)** / **Run** builds the Java and JNI code and
    packages the prepared native runtime. Run launches the UI, but does not
-   automatically load a model or submit a prompt. Use the in-app controls below.
+   automatically load a model, submit a prompt, or start the HTTP listener.
+   Use the in-app controls below.
 
 Gradle Wrapper is pinned to **9.8.1** in
 [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties).
@@ -73,16 +86,23 @@ inferdroid.ndkPath=/absolute/path/to/android-ndk-r30-beta1
 On this workstation, `local.properties` points at `/opt/android-sdk` and the
 persistent, ignored project directory `.deps/toolchains/android-ndk-r30-beta1`.
 The verified Bazel executable is also available in `.deps/tools/`.
+The installed Java 21 runtime is `/home/asp4d/.jdks/jbr-21.0.11`; Android
+Studio's `GRADLE_LOCAL_JAVA_HOME` already resolves to it on this workstation.
+The shell's default Java and Studio's bundled runtime are Java 25, so set
+`JAVA_HOME` explicitly for the commands below. JDK 21 can compile this Android
+app without requiring Java 21 on the phone. See
+[Android's JDK guidance](https://developer.android.com/build/jdks) and
+[Gradle's compatibility table](https://docs.gradle.org/current/userguide/compatibility.html).
 
 ## Reproduce the native runtime
 
-Host tools: Linux x86_64, Bash, JDK 17, `git`, `curl`, `python3`, `rg`,
+Host tools: Linux x86_64, Bash, JDK 21, `git`, `curl`, `python3`, `rg`,
 `sha256sum`, and **Bazel 7.6.1** or Bazelisk (reads upstream `.bazelversion`).
 Allow roughly **125 GB** free disk for a complete first source build; the
 reference recipe's first-build estimate is tens of minutes.
 
 ```bash
-export JAVA_HOME=/absolute/path/to/jdk-17
+export JAVA_HOME=/absolute/path/to/jdk-21
 export ANDROID_HOME=/absolute/path/to/Android/Sdk
 export ANDROID_NDK_HOME=/absolute/path/to/android-ndk-r30-beta1
 export BAZEL=/absolute/path/to/bazel-7.6.1-linux-x86_64
@@ -99,7 +119,7 @@ source lives in ignored `.deps/LiteRT-LM/`.
 Exact commands using the tools already prepared in this workspace:
 
 ```bash
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export JAVA_HOME=/home/asp4d/.jdks/jbr-21.0.11
 export ANDROID_HOME=/opt/android-sdk
 export ANDROID_NDK_HOME="$PWD/.deps/toolchains/android-ndk-r30-beta1"
 export BAZEL="$PWD/.deps/tools/bazel-7.6.1-linux-x86_64"
@@ -206,7 +226,8 @@ failure; choose the local file through the system Files provider instead.
    `Conversation::CancelProcess()`. A fresh conversation is used for each
    request, so cancellation does not reuse a partially updated session.
 6. **Unload / Stop** cancels active generation, waits for native work to drain,
-   releases the model/descriptor, and removes the foreground notification.
+   closes the HTTP listener if running, releases the model/descriptor, and
+   removes the foreground notification.
    These controls are also available in the notification where applicable.
 
 Status distinguishes **NPU selected**, **NPU initialized**, and **generation
@@ -225,6 +246,40 @@ explanation for local inference, as described in the
 [foreground service documentation](https://developer.android.com/develop/background-work/services/fgs/service-types#special-use).
 Notification denial does not grant additional privileges: Android can hide the
 notification, and the app shows that actual permission state.
+
+## Use the localhost API
+
+Select the model, scroll to **Local OpenAI API**, and press **Start server**.
+Keep **Require local API key** enabled and use **Copy key** to configure a
+trusted client. The model loads on the first request; **Load model** can
+initialize it beforehand. The server stays available while the Activity is
+backgrounded.
+
+| Client setting | Default |
+| --- | --- |
+| OpenAI base URL | `http://127.0.0.1:8080/v1` |
+| Model ID | `gemma-4-E2B-it_Google_Tensor_G5` |
+| Authorization | `Bearer <copied-local-key>` |
+| Endpoints | `GET /v1/models`, `POST /v1/chat/completions` |
+
+Use `stream: true` for live SSE. Both UI and API requests use the same single
+inference slot; an overlap returns an OpenAI-style **429** error. Port, key,
+and optional CORS settings persist and can be changed while the listener is
+stopped. **Stop server** cancels its active client request and retains the
+model for UI use. **Unload / Stop** stops both the server and engine.
+
+**GrapheneOS upgrade:** allow **Network** under InferDroid's app permissions;
+localhost sockets require it. This permission was disabled when the milestone
+2 installation first received this update. Clients need their own Network
+permission and must permit cleartext localhost HTTP. The server binds only
+to `127.0.0.1`, and it makes no outbound network requests. CORS is optional
+and disabled initially; token authentication is enabled initially because
+other apps on the phone can reach loopback.
+
+See [local-api.md](docs/local-api.md) for supported text messages and sampling
+parameters, error behavior, limits, CORS, and complete `curl` examples through
+`adb forward tcp:18080 tcp:8080`. Audio, image input, tools, structured output,
+and `/v1/completions` are outside this milestone.
 
 ## Capture Tensor G5 evidence
 
@@ -287,15 +342,15 @@ python3 scripts/generate-icons.py
 
 ## Build and device verification
 
-Assembly and lint were rerun with the current Gradle 9.8.1 / AGP 9.4.1 /
-compile SDK 37 configuration on 2026-10-08.
+Assembly and lint were rerun with JDK 21, Gradle 9.8.1 / AGP 9.4.1 /
+compile SDK 37 for milestone 3 on 2026-10-10.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
 - Java, CMake/JNI, debug APK assembly, and Android lint passed (0 errors).
   Lint's two warnings are intentional arm64-only targeting and target API 36
   below the newest platform. The native runtime versions remain pinned.
 - APK inspection confirmed exactly four arm64 native libraries and no
-  `.litertlm` model. The service debug APK is approximately 25 MB.
+  `.litertlm` model. The milestone 3 debug APK is approximately 16 MB.
 - `adb install -r` succeeded on the connected Pixel 10. `MainActivity` launched
   successfully and its UI was inspected. Android confirmed extracted native
   libraries, arm64 ABI, and `libedgetpu_litert.so` in the app's vendor library
@@ -308,24 +363,32 @@ compile SDK 37 configuration on 2026-10-08.
   requests and a cancelled request. Unload removed the model's memory mappings
   and file descriptors; reload worked afterward. No inference wake lock was
   held while the model was idle. Details are in the verification record.
-- **Three device instrumentation tests passed** for serialization/reuse,
-  concurrent cancellation/recovery, and stopping during initialization. These
-  use a fake engine to exercise lifecycle timing; real NPU execution was
-  verified separately through the app UI.
+- **Milestone 3: physical HTTP and SSE requests passed**, including history
+  with a system prompt, an eight-token output cap with `finish_reason: length`,
+  real 429 rejection, serving in the background, and native cancellation on
+  client disconnect followed by successful reuse. NPU evidence remained the
+  same. Measurements are in the verification record.
+- **Ten device instrumentation tests passed** for the original lifecycle,
+  UTF-8 boundaries, authentication/validation, history/parameter translation,
+  live streaming, UI/API contention, disconnect/recovery, CORS/port conflict,
+  and stop/restart/key rotation. They use a fake engine to control timing;
+  physical NPU execution was verified separately through the HTTP service.
 
-To rerun the lifecycle tests on a connected Android device:
+To rerun the lifecycle/API tests on a connected Android device, allow the
+GrapheneOS Network permission first, then:
 
 ```bash
-./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+export JAVA_HOME=/home/asp4d/.jdks/jbr-21.0.11
+./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
 ```
 
-Expected result: `Lifecycle tests: 3 passed, 0 failed.` The runner uses only
+Expected result: `Lifecycle/API tests: 10 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
-InferDroid afterward and press Run for a real NPU request.
+InferDroid afterward and press Run or Start server for a real NPU request.
 
 ## Author
 
@@ -338,4 +401,3 @@ Developed by **Alessandro Spadini**:
 Copyright © 2026 Alessandro Spadini.
 
 This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
-

@@ -6,6 +6,9 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.content.ClipboardManager;
+import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -20,8 +23,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import dev.inferdroid.engine.EngineManager;
 import dev.inferdroid.engine.GenerationRequest;
+import dev.inferdroid.server.ServerConfig;
 
-public final class MainActivity extends Activity implements EngineManager.Listener {
+public final class MainActivity extends Activity implements EngineManager.Listener, InferenceService.ServerListener {
     private static final int PICK_MODEL = 1;
     private static final int NOTIFICATIONS = 2;
     private InferenceService service;
@@ -40,6 +44,15 @@ public final class MainActivity extends Activity implements EngineManager.Listen
     private TextView status;
     private TextView output;
     private TextView diagnostics;
+    private SharedPreferences serverPreferences;
+    private EditText serverPort;
+    private EditText apiKey;
+    private CheckBox requireKey;
+    private CheckBox cors;
+    private Button startServer;
+    private Button stopServer;
+    private Button regenerateKey;
+    private TextView serverStatus;
     private boolean started;
     private boolean bound;
     private boolean permissionInFlight;
@@ -51,11 +64,13 @@ public final class MainActivity extends Activity implements EngineManager.Listen
             service = ((InferenceService.LocalBinder) binder).getService();
             manager = service.getManager();
             manager.attach(MainActivity.this);
+            service.attachServer(MainActivity.this);
             executePending();
         }
 
         @Override public void onServiceDisconnected(ComponentName name) {
             if (manager != null) manager.detach(MainActivity.this);
+            if (service != null) service.detachServer(MainActivity.this);
             manager = null;
             service = null;
             setDisconnected();
@@ -91,6 +106,38 @@ public final class MainActivity extends Activity implements EngineManager.Listen
         status = findViewById(R.id.status);
         output = findViewById(R.id.output);
         diagnostics = findViewById(R.id.diagnostics);
+        serverPreferences = getSharedPreferences("server", MODE_PRIVATE);
+        serverPort = findViewById(R.id.server_port);
+        apiKey = findViewById(R.id.api_key);
+        requireKey = findViewById(R.id.require_api_key);
+        cors = findViewById(R.id.cors);
+        startServer = findViewById(R.id.start_server);
+        stopServer = findViewById(R.id.stop_server);
+        regenerateKey = findViewById(R.id.regenerate_key);
+        serverStatus = findViewById(R.id.server_status);
+        if (!serverPreferences.contains("api_key")) {
+            serverPreferences.edit().putString("api_key", ServerConfig.generateKey()).apply();
+        }
+        serverPort.setText(String.format(java.util.Locale.ROOT, "%d", serverPreferences.getInt("port", ServerConfig.DEFAULT_PORT)));
+        apiKey.setText(serverPreferences.getString("api_key", ""));
+        requireKey.setChecked(serverPreferences.getBoolean("require_key", true));
+        cors.setChecked(serverPreferences.getBoolean("cors", false));
+        startServer.setOnClickListener(view -> startLocalServer());
+        stopServer.setOnClickListener(view -> { if (service != null) service.stopServer(); });
+        regenerateKey.setOnClickListener(view -> {
+            String key = ServerConfig.generateKey();
+            apiKey.setText(key);
+            serverPreferences.edit().putString("api_key", key).apply();
+        });
+        findViewById(R.id.copy_key).setOnClickListener(view -> {
+            ClipData clip = ClipData.newPlainText("InferDroid local API key", apiKey.getText().toString());
+            if (Build.VERSION.SDK_INT >= 33) {
+                android.os.PersistableBundle extras = new android.os.PersistableBundle();
+                extras.putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true);
+                clip.getDescription().setExtras(extras);
+            }
+            getSystemService(ClipboardManager.class).setPrimaryClip(clip);
+        });
         modelSource.setText(preferences.getString("model", ""));
         verbose.setChecked(preferences.getBoolean("verbose", true));
         choose.setOnClickListener(view -> chooseModel());
@@ -112,6 +159,7 @@ public final class MainActivity extends Activity implements EngineManager.Listen
     @Override protected void onStop() {
         started = false;
         if (manager != null) manager.detach(this);
+        if (service != null) service.detachServer(this);
         if (bound) unbindService(connection);
         bound = false;
         manager = null;
@@ -124,6 +172,8 @@ public final class MainActivity extends Activity implements EngineManager.Listen
         load.setEnabled(false);
         unload.setEnabled(false);
         cancel.setEnabled(false);
+        startServer.setEnabled(false);
+        stopServer.setEnabled(false);
         status.setText(R.string.service_connecting);
     }
 
@@ -186,6 +236,28 @@ public final class MainActivity extends Activity implements EngineManager.Listen
         });
     }
 
+    private void startLocalServer() {
+        String source = selectedModel();
+        if (source == null) return;
+        try {
+            int port = Integer.parseInt(serverPort.getText().toString().trim());
+            if (port < 1 || port > 65535) throw new IllegalArgumentException(getString(R.string.invalid_port));
+            ServerConfig config = new ServerConfig(port, apiKey.getText().toString(), requireKey.isChecked(), cors.isChecked());
+            boolean logs = verbose.isChecked();
+            serverPreferences.edit().putInt("port", port).putString("api_key", config.apiKey)
+                    .putBoolean("require_key", config.requireKey).putBoolean("cors", config.cors).apply();
+            withNotificationPermission(() -> {
+                try {
+                    service.startServer(config, source, logs);
+                } catch (java.io.IOException | RuntimeException error) {
+                    serverStatus.setText(getString(R.string.error_detail, "Server start failed", error.getMessage()));
+                }
+            });
+        } catch (IllegalArgumentException error) {
+            serverStatus.setText(error instanceof NumberFormatException ? getString(R.string.invalid_port) : error.getMessage());
+        }
+    }
+
     private void withNotificationPermission(Runnable action) {
         if (service == null || permissionInFlight) return;
         pendingAction = action;
@@ -231,15 +303,28 @@ public final class MainActivity extends Activity implements EngineManager.Listen
     @Override public void onStateChanged(EngineManager.State state) {
         run.setEnabled(!state.busy);
         load.setEnabled(!state.busy);
-        unload.setEnabled((state.loaded || state.busy) && state.phase != EngineManager.Phase.STOPPING);
+        boolean serving = service != null && service.isServerRunning();
+        unload.setEnabled((serving || state.loaded || state.busy) && state.phase != EngineManager.Phase.STOPPING);
         cancel.setEnabled(state.canCancel);
-        choose.setEnabled(!state.busy);
-        modelSource.setEnabled(!state.busy);
+        choose.setEnabled(!state.busy && !serving);
+        modelSource.setEnabled(!state.busy && !serving);
         prompt.setEnabled(!state.busy);
-        verbose.setEnabled(!state.busy);
+        verbose.setEnabled(!state.busy && !serving);
+        startServer.setEnabled(!serving && state.phase != EngineManager.Phase.STOPPING);
+        stopServer.setEnabled(serving);
+        serverPort.setEnabled(!serving);
+        apiKey.setEnabled(!serving);
+        requireKey.setEnabled(!serving);
+        cors.setEnabled(!serving);
+        regenerateKey.setEnabled(!serving);
         backend.setText(state.backend);
         status.setText(state.status);
         output.setText(state.result == null ? "" : state.result.text);
         diagnostics.setText(state.result == null ? "" : state.result.diagnostics);
+    }
+
+    @Override public void onServerChanged(boolean running, String message) {
+        serverStatus.setText(message);
+        if (manager != null) onStateChanged(manager.getState());
     }
 }

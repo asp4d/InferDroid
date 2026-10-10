@@ -58,25 +58,34 @@ public final class GemmaInferenceEngine implements InferenceEngine {
     @Override public String getModelSource() { return modelSource; }
     @Override public String getLoadDiagnostics() { return loadDiagnostics; }
 
-    @Override public GenerationResult generate(GenerationRequest request, AtomicBoolean cancelled) {
+    @Override public GenerationResult generate(GenerationRequest request, AtomicBoolean cancelled) throws Exception {
+        return generate(request, cancelled, null);
+    }
+
+    @Override public GenerationResult generate(GenerationRequest request, AtomicBoolean cancelled,
+                                               GenerationListener listener) throws Exception {
         long requestId = ++nextRequest;
         activeRequest = requestId;
         try {
             if (cancelled.get()) {
                 return new GenerationResult(false, true, "", "Request cancelled before generation.");
             }
-            return NativeInference.generate(handle, requestId, request.prompt, request.verbose);
+            return NativeInference.generate(handle, requestId, request, listener);
         } finally {
             activeRequest = 0;
         }
     }
 
     @Override public void cancel() {
+        cancellation().run();
+    }
+
+    @Override public Runnable cancellation() {
         long requestId = activeRequest;
         long engineHandle = handle;
-        if (engineHandle != 0 && requestId != 0) {
-            NativeInference.cancelNative(engineHandle, requestId);
-        }
+        return () -> {
+            if (engineHandle != 0 && requestId != 0) NativeInference.cancelNative(engineHandle, requestId);
+        };
     }
 
     @Override public void unload() {

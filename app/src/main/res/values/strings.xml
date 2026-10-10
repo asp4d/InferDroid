@@ -11,7 +11,7 @@
     <string name="unload">Unload / Stop</string>
     <string name="cancel">Cancel</string>
     <string name="notification_channel">Local inference</string>
-    <string name="notification_channel_description">Status and controls while the on-device model is loaded.</string>
+    <string name="notification_channel_description">Status and controls while local inference or the localhost API is running.</string>
     <string name="notification_title">InferDroid · Tensor G5 inference</string>
     <string name="notifications_disabled">Notification permission is off. Android may hide the service notification; allow notifications in app settings to show it.</string>
     <string name="service_connecting">Connecting to inference service…</string>
@@ -26,4 +26,16 @@
     <string name="model_temporary">Model selected for this launch. This provider did not grant persistent access.</string>
     <string name="model_required">Choose the Tensor G5 .litertlm model first.</string>
     <string name="prompt_required">Enter a non-empty prompt without null characters.</string>
+    <string name="server_label">Local OpenAI API</string>
+    <string name="server_help">Only listens on 127.0.0.1. Other apps on this device can connect; keep the API key enabled for trusted access. Start the server to accept requests, including while InferDroid is in the background.</string>
+    <string name="server_port">Port (default 8080)</string>
+    <string name="invalid_port">Enter a port between 1 and 65535.</string>
+    <string name="require_api_key">Require local API key</string>
+    <string name="api_key">Local API key</string>
+    <string name="copy_key">Copy key</string>
+    <string name="regenerate_key">Generate new key</string>
+    <string name="cors">Allow browser / WebView clients (CORS)</string>
+    <string name="start_server">Start server</string>
+    <string name="stop_server">Stop server</string>
+    <string name="server_stopped">Local API stopped.</string>
 </resources>

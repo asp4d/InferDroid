@@ -2,6 +2,7 @@
 #include <android/log.h>
 
 #include <memory>
+#include <atomic>
 #include <string>
 
 #include "runtime_api.h"
@@ -36,6 +37,45 @@ bool CheckResult(JNIEnv* env, const Result& result) {
   if (error) env->ThrowNew(error, "Native runtime could not allocate a result.");
   return false;
 }
+
+// Upstream callbacks run on native threads. Retain the Java consumer until the
+// runtime has drained all callbacks; never retain a thread-local JNIEnv.
+class TextCallback {
+ public:
+  TextCallback(JNIEnv* env, jobject callback) : owner_(env) {
+    if (!callback) return;
+    env->GetJavaVM(&vm_);
+    callback_ = env->NewGlobalRef(callback);
+    jclass type = env->GetObjectClass(callback);
+    method_ = env->GetMethodID(type, "onText", "([B)V");
+    env->DeleteLocalRef(type);
+  }
+  ~TextCallback() { if (callback_) owner_->DeleteGlobalRef(callback_); }
+  bool enabled() const { return callback_ && method_; }
+  static int Deliver(void* context, const char* text, size_t size) {
+    auto& callback = *static_cast<TextCallback*>(context);
+    if (callback.failed_) return 0;
+    JNIEnv* env = nullptr;
+    bool attached = callback.vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) == JNI_EDETACHED;
+    if (attached && callback.vm_->AttachCurrentThread(&env, nullptr) != JNI_OK) return 0;
+    if (!env) return 0;
+    auto bytes = Bytes(env, text, size);
+    if (!env->ExceptionCheck()) env->CallVoidMethod(callback.callback_, callback.method_, bytes);
+    if (env->ExceptionCheck()) {
+      env->ExceptionClear();
+      callback.failed_ = true;
+    }
+    if (bytes) env->DeleteLocalRef(bytes);
+    if (attached) callback.vm_->DetachCurrentThread();
+    return !callback.failed_;
+  }
+ private:
+  JNIEnv* owner_;
+  JavaVM* vm_ = nullptr;
+  jobject callback_ = nullptr;
+  jmethodID method_ = nullptr;
+  std::atomic<bool> failed_{false};
+};
 }  // namespace
 
 extern "C" JNIEXPORT jobject JNICALL
@@ -66,26 +106,31 @@ Java_dev_inferdroid_engine_NativeInference_loadNative(
 extern "C" JNIEXPORT jobject JNICALL
 Java_dev_inferdroid_engine_NativeInference_generateNative(
     JNIEnv* env, jclass, jlong handle, jlong request_id,
-    jbyteArray prompt_bytes, jboolean verbose) {
-  const jsize size = env->GetArrayLength(prompt_bytes);
-  std::string prompt(static_cast<size_t>(size), '\0');
-  env->GetByteArrayRegion(prompt_bytes, 0, size, reinterpret_cast<jbyte*>(prompt.data()));
+    jbyteArray request_bytes, jboolean verbose, jobject consumer) {
+  const jsize size = env->GetArrayLength(request_bytes);
+  std::string request(static_cast<size_t>(size), '\0');
+  env->GetByteArrayRegion(request_bytes, 0, size, reinterpret_cast<jbyte*>(request.data()));
   if (env->ExceptionCheck()) return nullptr;
-  __android_log_print(ANDROID_LOG_INFO, "InferDroid", "JNI start; backend=NPU; prompt bytes=%d", size);
+  TextCallback callback(env, consumer);
+  if (env->ExceptionCheck()) return nullptr;
+  __android_log_print(ANDROID_LOG_INFO, "InferDroid", "JNI start; backend=NPU; request bytes=%d", size);
   Result result(
-      inferdroid_engine_generate(handle, request_id, prompt.c_str(), verbose),
+      inferdroid_engine_generate(handle, request_id, request.c_str(), verbose,
+          callback.enabled() ? TextCallback::Deliver : nullptr, &callback),
       inferdroid_result_free);
   if (!CheckResult(env, result)) return nullptr;
   jclass result_class = env->FindClass("dev/inferdroid/engine/GenerationResult");
   if (!result_class) return nullptr;
-  jmethodID constructor = env->GetMethodID(result_class, "<init>", "(ZZ[B[B)V");
+  jmethodID constructor = env->GetMethodID(result_class, "<init>", "(ZZ[B[BIIZ)V");
   if (!constructor) return nullptr;
   auto text = Bytes(env, result->text, result->text_size);
   if (env->ExceptionCheck()) return nullptr;
   auto diagnostics = Bytes(env, result->diagnostics, result->diagnostics_size);
   if (env->ExceptionCheck()) return nullptr;
   return env->NewObject(result_class, constructor, static_cast<jboolean>(result->success),
-                       static_cast<jboolean>(result->cancelled), text, diagnostics);
+                       static_cast<jboolean>(result->cancelled), text, diagnostics,
+                       result->prompt_tokens, result->completion_tokens,
+                       static_cast<jboolean>(result->limit_reached));
 }
 
 extern "C" JNIEXPORT void JNICALL

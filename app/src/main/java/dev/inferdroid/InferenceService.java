@@ -11,12 +11,25 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
+import android.os.Handler;
+import android.os.Looper;
 import dev.inferdroid.engine.EngineManager;
 import dev.inferdroid.engine.GenerationRequest;
+import dev.inferdroid.engine.GenerationListener;
 import dev.inferdroid.engine.GemmaInferenceEngine;
+import dev.inferdroid.server.ChatGateway;
+import dev.inferdroid.server.OpenAiServer;
+import dev.inferdroid.server.ServerConfig;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 
-/** Private foreground owner of the retained model; no network server. */
+/** Private foreground owner of the retained model and optional loopback server. */
 public final class InferenceService extends Service implements EngineManager.Listener {
+    public interface ServerListener { void onServerChanged(boolean running, String status); }
     private static final String CHANNEL = "inference";
     private static final int NOTIFICATION = 1;
     private static final String START = "dev.inferdroid.START_INFERENCE_SERVICE";
@@ -27,6 +40,11 @@ public final class InferenceService extends Service implements EngineManager.Lis
     private NotificationManager notifications;
     private boolean foreground;
     private boolean wanted;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final Set<ServerListener> serverListeners = new LinkedHashSet<>();
+    private OpenAiServer server;
+    private String serverStatus = "Local API stopped.";
+    private boolean shuttingDown;
 
     public final class LocalBinder extends Binder {
         public InferenceService getService() { return InferenceService.this; }
@@ -53,14 +71,98 @@ public final class InferenceService extends Service implements EngineManager.Lis
     @Override public IBinder onBind(Intent intent) { return binder; }
     public EngineManager getManager() { return manager; }
 
+    public boolean isServerRunning() { return server != null && server.isRunning(); }
+    public void attachServer(ServerListener listener) {
+        serverListeners.add(listener);
+        listener.onServerChanged(isServerRunning(), serverStatus);
+    }
+    public void detachServer(ServerListener listener) { serverListeners.remove(listener); }
+
+    public void startServer(ServerConfig config, String modelSource, boolean verbose) throws IOException {
+        if (isServerRunning()) return;
+        if (checkSelfPermission(android.Manifest.permission.INTERNET) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            throw new SecurityException("Network permission is off. In Android settings, open InferDroid → Permissions → Network and allow it; localhost sockets require it too.");
+        }
+        if (shuttingDown || manager.getState().phase == EngineManager.Phase.STOPPING) {
+            throw new IllegalStateException("Wait for the service to finish stopping.");
+        }
+        if (modelSource.isEmpty()) throw new IllegalArgumentException("Choose a model first.");
+        ensureForeground();
+        OpenAiServer candidate = new OpenAiServer(config, modelSource, verbose, new ChatGateway() {
+            @Override public boolean generate(GenerationRequest request, GenerationListener listener) throws Exception {
+                FutureTask<Boolean> admission = new FutureTask<>(() ->
+                        !shuttingDown && isServerRunning() && manager.generate(request, listener));
+                main.post(admission);
+                try {
+                    return admission.get(5, TimeUnit.SECONDS);
+                } catch (Exception error) {
+                    admission.cancel(false);
+                    cancel(listener);
+                    throw error;
+                }
+            }
+            @Override public void cancel(GenerationListener listener) {
+                main.post(() -> manager.cancel(listener));
+            }
+        }, () -> main.post(() -> {
+            // A stopped older server must not close a newly started listener.
+            if (server != null && !server.isRunning()) {
+                server = null;
+                serverStatus = "Local API stopped unexpectedly. Start it again from the app.";
+                publishServer();
+                stopIfIdle();
+            }
+        }));
+        try {
+            candidate.start();
+            server = candidate;
+            serverStatus = "Listening at http://127.0.0.1:" + candidate.getPort() + "/v1 · "
+                    + (config.requireKey ? "API key required" : "API key disabled")
+                    + (config.cors ? " · CORS enabled" : "");
+            publishServer();
+        } catch (IOException | RuntimeException error) {
+            candidate.close();
+            serverStatus = "Cannot start local API on port " + config.port + ": " + error.getMessage();
+            publishServer();
+            stopIfIdle();
+            throw error;
+        }
+    }
+
+    public void stopServer() {
+        closeServer();
+        publishServer();
+        stopIfIdle();
+    }
+
+    private void closeServer() {
+        if (server != null) server.close();
+        server = null;
+        serverStatus = "Local API stopped.";
+    }
+
+    private void publishServer() {
+        for (ServerListener listener : new ArrayList<>(serverListeners)) listener.onServerChanged(isServerRunning(), serverStatus);
+        if (foreground) notifications.notify(NOTIFICATION, notification(manager.getState()));
+    }
+
+    private void stopIfIdle() {
+        if (!isServerRunning() && manager.getState().phase == EngineManager.Phase.UNLOADED) {
+            wanted = false;
+            foreground = false;
+            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopSelf();
+        }
+    }
+
     public boolean load(String model, boolean verbose) {
-        if (manager.getState().busy) return false;
+        if (shuttingDown || manager.getState().busy) return false;
         ensureForeground();
         return manager.load(model, verbose);
     }
 
     public boolean generate(GenerationRequest request) {
-        if (manager.getState().busy) return false;
+        if (shuttingDown || manager.getState().busy) return false;
         ensureForeground();
         return manager.generate(request);
     }
@@ -68,11 +170,15 @@ public final class InferenceService extends Service implements EngineManager.Lis
     public void cancel() { manager.cancel(); }
 
     public void unload() {
+        shuttingDown = true;
+        closeServer();
+        publishServer();
         manager.unload(() -> {
             wanted = false;
             foreground = false;
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
+            shuttingDown = false;
         });
     }
 
@@ -108,11 +214,8 @@ public final class InferenceService extends Service implements EngineManager.Lis
 
     @Override public void onStateChanged(EngineManager.State state) {
         if (!foreground) return;
-        if (state.phase == EngineManager.Phase.UNLOADED) {
-            wanted = false;
-            foreground = false;
-            stopForeground(STOP_FOREGROUND_REMOVE);
-            stopSelf();
+        if (state.phase == EngineManager.Phase.UNLOADED && !isServerRunning()) {
+            stopIfIdle();
         } else {
             notifications.notify(NOTIFICATION, notification(state));
         }
@@ -125,7 +228,9 @@ public final class InferenceService extends Service implements EngineManager.Lis
         Notification.Builder builder = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentTitle(getString(R.string.notification_title))
-                .setContentText(state.status)
+                .setContentText(isServerRunning() ? serverStatus : state.status)
+                .setStyle(new Notification.BigTextStyle().bigText(isServerRunning()
+                        ? serverStatus + "\n" + state.status : state.status))
                 .setSubText(state.backend)
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_SERVICE)
@@ -148,6 +253,9 @@ public final class InferenceService extends Service implements EngineManager.Lis
     @Override public void onDestroy() {
         foreground = false;
         wanted = false;
+        shuttingDown = true;
+        closeServer();
+        serverListeners.clear();
         manager.detach(this);
         manager.close();
         stopForeground(STOP_FOREGROUND_REMOVE);

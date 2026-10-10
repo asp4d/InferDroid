@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -17,7 +18,7 @@
         <service android:name=".InferenceService" android:exported="false"
             android:foregroundServiceType="specialUse" android:stopWithTask="false">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started local AI inference. Keeps the on-device model loaded between serialized requests, with visible status and explicit cancellation/unload controls." />
+                android:value="User-started local AI inference and localhost API. Keeps the on-device model and authenticated loopback HTTP listener available between serialized requests, with visible status and explicit stop controls." />
         </service>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>

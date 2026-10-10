@@ -49,7 +49,8 @@ public final class EngineManager {
             task -> new Thread(task, "InferDroid-cancel"));
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Set<Listener> listeners = new LinkedHashSet<>();
-    private final AtomicBoolean cancelled = new AtomicBoolean();
+    private AtomicBoolean cancelled = new AtomicBoolean();
+    private GenerationListener activeListener;
     private final ArrayList<Runnable> stoppedCallbacks = new ArrayList<>();
     private State state = new State(Phase.UNLOADED, false, false, false,
             "Select the Tensor G5 model, then press Load model or Run.", null);
@@ -93,11 +94,17 @@ public final class EngineManager {
     }
 
     public boolean generate(GenerationRequest request) {
+        return generate(request, null);
+    }
+
+    public boolean generate(GenerationRequest request, GenerationListener listener) {
         if (closed || state.busy) {
             Log.i("InferDroid", "Rejected request: engine is busy or stopping");
             return false;
         }
-        cancelled.set(false);
+        AtomicBoolean cancellation = new AtomicBoolean();
+        cancelled = cancellation;
+        activeListener = listener;
         boolean needsLoad = !engine.isLoaded() || !request.modelSource.equals(engine.getModelSource());
         if (needsLoad) verified = false;
         publish(needsLoad ? Phase.LOADING : Phase.GENERATING,
@@ -110,16 +117,16 @@ public final class EngineManager {
                 GenerationResult loaded = engine.load(request.modelSource, request.verbose);
                 if (!loaded.success) {
                     result = loaded;
-                } else if (cancelled.get()) {
+                } else if (cancellation.get()) {
                     result = new GenerationResult(false, true, "", "Request cancelled before generation.");
                 } else {
                     main.post(() -> {
                         if (!stopping && !closed) publish(Phase.GENERATING,
                                 "Generating on the loaded Tensor G5 engine…", null);
                     });
-                    result = engine.generate(request, cancelled);
-                    result = new GenerationResult(result.success, result.cancelled, result.text,
-                            engine.getLoadDiagnostics() + "\nRequest diagnostics:\n" + result.diagnostics);
+                    result = engine.generate(request, cancellation, listener);
+                    result = result.withDiagnostics(engine.getLoadDiagnostics()
+                            + "\nRequest diagnostics:\n" + result.diagnostics);
                 }
             } catch (Exception | LinkageError | OutOfMemoryError error) {
                 result = failure(error);
@@ -127,7 +134,12 @@ public final class EngineManager {
             GenerationResult completed = result;
             long elapsedMs = (System.nanoTime() - start) / 1_000_000;
             main.post(() -> {
-                if (stopping || closed) return;
+                activeListener = null;
+                if (stopping || closed) {
+                    if (listener != null) listener.onComplete(new GenerationResult(
+                            false, true, completed.text, "Inference service stopped."));
+                    return;
+                }
                 if (completed.success) verified = true;
                 String status = completed.success
                         ? "Generated in " + elapsedMs + " ms. Model remains loaded on Tensor G5."
@@ -135,6 +147,7 @@ public final class EngineManager {
                         : "Failed after " + elapsedMs + " ms. See diagnostics; no CPU retry.";
                 Log.i("InferDroid", status);
                 publish(engine.isLoaded() ? Phase.READY : Phase.UNLOADED, status, completed);
+                if (listener != null) listener.onComplete(completed);
             });
         });
         return true;
@@ -142,15 +155,26 @@ public final class EngineManager {
 
     public void cancel() {
         if (!state.canCancel || closed) return;
+        requestCancellation();
+    }
+
+    /** Only the caller that owns the active request may cancel it. Also works during loading. */
+    public void cancel(GenerationListener listener) {
+        if (listener == null || listener != activeListener || closed || stopping) return;
+        requestCancellation();
+    }
+
+    private void requestCancellation() {
         cancelled.set(true);
-        publish(Phase.GENERATING, "Cancellation requested; waiting for the native task to stop…", state.result);
+        publish(state.phase, "Cancellation requested; waiting for the native task to stop…", state.result);
         cancelNative();
     }
 
     private Future<?> cancelNative() {
+        Runnable cancellation = engine.cancellation();
         return control.submit(() -> {
             try {
-                engine.cancel();
+                cancellation.run();
             } catch (LinkageError | RuntimeException error) {
                 Log.e("InferDroid", "Cancellation failed", error);
             }

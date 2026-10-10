@@ -53,6 +53,37 @@
             android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"
             android:textSize="16sp" android:paddingTop="8dp" android:paddingBottom="8dp" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="@string/server_label" android:textStyle="bold" android:textSize="18sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/server_help" />
+        <EditText android:id="@+id/server_port" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="@string/server_port"
+            android:inputType="number" android:maxLength="5" android:singleLine="true" android:importantForAutofill="no" />
+        <CheckBox android:id="@+id/require_api_key" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/require_api_key" android:checked="true" />
+        <EditText android:id="@+id/api_key" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="@string/api_key"
+            android:inputType="textPassword" android:singleLine="true" android:maxLength="256" android:importantForAutofill="no" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" style="?android:attr/buttonBarStyle">
+            <Button android:id="@+id/copy_key" style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/copy_key" />
+            <Button android:id="@+id/regenerate_key" style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/regenerate_key" />
+        </LinearLayout>
+        <CheckBox android:id="@+id/cors" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/cors" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" style="?android:attr/buttonBarStyle">
+            <Button android:id="@+id/start_server" style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/start_server" />
+            <Button android:id="@+id/stop_server" style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/stop_server" />
+        </LinearLayout>
+        <TextView android:id="@+id/server_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/server_stopped" android:textIsSelectable="true"
+            android:accessibilityLiveRegion="polite" android:paddingBottom="12dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/output_label" android:textStyle="bold" />
         <TextView android:id="@+id/output" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:textIsSelectable="true"

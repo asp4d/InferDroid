@@ -61,9 +61,12 @@ The adapter uses the following **existing** APIs at the pinned commit:
    `SessionAdvanced::CancelProcess()` and its execution manager. Cancellation
    is issued from a separate Java control executor while generation waits.
 
-The original CLI's optional sampler-flags patch is irrelevant here: the known
+The original CLI's optional sampler-flags patch is unnecessary: the known
 successful command did not override sampling. InferDroid preserves the default
-session sampler and only caps generated output at 256 tokens.
+session sampler when parameters are omitted and defaults to 256 output tokens.
+Milestone 3 maps optional temperature/top-p/seed and a 1–1024 output cap through
+the pinned `SessionConfig::GetMutableSamplerParams()` and
+`SetMaxOutputTokens()` APIs; it does not change the model, dispatch, or backend.
 
 `native/runtime_api.h` is **InferDroid's own C boundary**, not a fictitious
 LiteRT-LM API. The Bazel-built adapter owns LiteRT-LM C++ objects. The small
@@ -178,11 +181,29 @@ is awaited before reading the completed history or releasing the conversation.
 Unload drains the Java cancellation executor too, then destroys the engine off
 the main thread. JNI loading failures release any newly allocated native engine.
 
+Milestone 3 passes the supplied text message array to `SendMessageAsync`, whose
+pinned contract supports prefilling multiple messages before generating one
+response. This preserves roles and history through the model's chat template.
+The adapter forwards each callback's text content through InferDroid's C
+boundary. JNI retains one global callback reference, attaches native callback
+threads to the JVM, transfers ordinary UTF-8 byte arrays, and releases the
+reference only after all native callbacks drain. Java retains partial UTF-8
+sequences across chunks before emitting protocol-neutral text events. Socket
+writes run on HTTP workers; native callbacks only enqueue bounded text.
+
+Actual usage counts come from the fresh conversation's `BenchmarkInfo`
+prefill/decode turns. No character-based token estimate is used. Java snapshots
+the active native engine/request IDs before queuing cancellation, preventing a
+delayed control task from cancelling the next request. The manager also scopes
+HTTP cancellation to the owning listener.
+
 The service is private (`exported=false`), uses `specialUse` on Android 14+,
-and requests only foreground-service, notification, and work-time wake-lock
-permissions. The wake lock is released between operations. `START_NOT_STICKY`
-means a process kill does not silently reinitialize the large model. There is
-no HTTP server, ASR/TTS, vision, image generation, or ToolManager implementation.
+and requests foreground-service, notification, work-time wake-lock, and now
+`INTERNET` permissions. The last permission is required for localhost sockets;
+the HTTP server binds only to `127.0.0.1` and makes no outbound requests.
+The wake lock is released between operations. `START_NOT_STICKY` means a
+process kill does not silently reinitialize the model or restart the listener.
+ASR/TTS, vision, image generation, and ToolManager remain future work.
 
 Two milestone 1 APK runs and six milestone 2 service requests passed on
 2026-10-08, returning generated text to Java with matching dispatch-kernel and
@@ -190,3 +211,7 @@ vendor-library evidence. Cancellation, background execution, native
 descriptor/mapping release, and reload were also verified on the Pixel. See
 [the verification record](milestone-verification.md). The original standalone
 success remains the baseline; these results verify that route inside the APK.
+Physical HTTP/SSE requests additionally passed on 2026-10-10, with incremental
+text, retained-engine history requests, output caps, background serving, and
+disconnect cancellation/recovery. See [local API details](local-api.md) and
+the milestone 3 section of the verification record.

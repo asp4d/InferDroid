@@ -10,6 +10,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import dev.inferdroid.server.OpenAiServerTests;
+import java.nio.charset.StandardCharsets;
 
 /** Headless platform-SDK tests: no test libraries, model, Activity, or JNI required. */
 public final class EngineManagerInstrumentation extends Instrumentation {
@@ -26,7 +28,9 @@ public final class EngineManagerInstrumentation extends Instrumentation {
 
     @Override public void onStart() {
         int failures = 0;
-        String[] names = {"busyAndReuse", "cancelAndReuse", "stopDuringLoad"};
+        String[] names = {"busyAndReuse", "cancelAndReuse", "stopDuringLoad", "splitUtf8Streaming",
+                "apiAuthenticationAndValidation", "apiChatHistoryAndErrors", "apiLiveStreaming",
+                "apiBusyDisconnectAndRecovery", "apiCorsAndPortConflict", "apiStopAndRestart"};
         for (int index = 0; index < names.length; index++) {
             Bundle status = new Bundle();
             status.putString("class", getClass().getName());
@@ -37,7 +41,9 @@ public final class EngineManagerInstrumentation extends Instrumentation {
             try {
                 if (index == 0) busyAndReuse();
                 else if (index == 1) cancelAndReuse();
-                else stopDuringLoad();
+                else if (index == 2) stopDuringLoad();
+                else if (index == 3) splitUtf8Streaming();
+                else new OpenAiServerTests(this).run(names[index]);
                 sendStatus(0, status);
             } catch (Throwable error) {
                 failures++;
@@ -46,9 +52,20 @@ public final class EngineManagerInstrumentation extends Instrumentation {
             }
         }
         Bundle result = new Bundle();
-        result.putString("stream", "\nLifecycle tests: " + (names.length - failures)
+        result.putString("stream", "\nLifecycle/API tests: " + (names.length - failures)
                 + " passed, " + failures + " failed.\n");
         finish(failures == 0 ? Activity.RESULT_OK : Activity.RESULT_CANCELED, result);
+    }
+
+    private void splitUtf8Streaming() {
+        StringBuilder text = new StringBuilder();
+        NativeInference.TextCallback callback = new NativeInference.TextCallback(new GenerationListener() {
+            @Override public void onText(String delta) { text.append(delta); }
+            @Override public void onComplete(GenerationResult result) { }
+        });
+        for (byte value : "Hello 🌍! é 漢字".getBytes(StandardCharsets.UTF_8)) callback.onText(new byte[]{value});
+        callback.finish();
+        check(text.toString().equals("Hello 🌍! é 漢字"), "split UTF-8 was corrupted");
     }
 
     private void busyAndReuse() throws Exception {

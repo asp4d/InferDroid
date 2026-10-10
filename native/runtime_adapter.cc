@@ -219,15 +219,51 @@ absl::StatusOr<std::shared_ptr<RuntimeEngine>> Load(int fd, const char* path,
   return runtime;
 }
 
+struct GenerationMetrics {
+  int prompt_tokens = -1;
+  int completion_tokens = -1;
+  bool limit_reached = false;
+};
+
+std::string MessageText(const litert::lm::Message& message) {
+  std::string text;
+  if (message.contains("content") && message["content"].is_array()) {
+    for (const auto& part : message["content"]) {
+      if (part.contains("text") && part["text"].is_string()) text += part["text"].get<std::string>();
+    }
+  }
+  return text;
+}
+
 absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runtime,
-    uint64_t request_id, const char* prompt, bool verbose,
-    std::ostringstream& diagnostics) {
+    uint64_t request_id, const char* request_json, bool verbose,
+    int (*on_text)(void*, const char*, size_t), void* callback_context,
+    GenerationMetrics& metrics, std::ostringstream& diagnostics) {
   using namespace litert::lm;
   SetMinLogSeverity(verbose ? LogSeverity::kInfo : LogSeverity::kWarning);
   diagnostics << "Reusing loaded NPU engine; fresh conversation for this request.\n"
               << "CPU retry is disabled.\n";
   auto session_config = SessionConfig::CreateDefault();
-  session_config.SetMaxOutputTokens(256);
+  auto request = nlohmann::json::parse(request_json, nullptr, false);
+  if (request.is_discarded() || !request.is_object() || !request.contains("messages") ||
+      !request["messages"].is_array() || request["messages"].empty() ||
+      !request.contains("max_output_tokens") || !request["max_output_tokens"].is_number_integer()) {
+    return absl::InvalidArgumentError("Invalid internal text request.");
+  }
+  int max_tokens = request["max_output_tokens"].get<int>();
+  if (max_tokens < 1 || max_tokens > 1024) return absl::InvalidArgumentError("Invalid output token limit.");
+  session_config.SetMaxOutputTokens(max_tokens);
+  auto& sampler = session_config.GetMutableSamplerParams();
+  if (request.contains("temperature")) {
+    float temperature = request["temperature"].get<float>();
+    if (temperature == 0) sampler.set_type(proto::SamplerParameters::GREEDY);
+    else sampler.set_temperature(temperature);
+  }
+  if (request.contains("top_p")) {
+    sampler.set_p(request["top_p"].get<float>());
+    if (sampler.type() != proto::SamplerParameters::GREEDY) sampler.set_type(proto::SamplerParameters::TOP_P);
+  }
+  if (request.contains("seed")) sampler.set_seed(request["seed"].get<int>());
   auto config = ConversationConfig::Builder().SetSessionConfig(session_config).Build(*runtime->engine);
   if (!config.ok()) return config.status();
   auto conversation = Conversation::Create(*runtime->engine, *config);
@@ -236,9 +272,7 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
   // Matches the pinned CLI's async call plus Engine::WaitUntilDone. Keep the
   // conversation alive until tasks/callbacks finish, and discard it after every
   // request (especially cancellation); retain only the reusable engine.
-  const nlohmann::json message = {
-      {"role", "user"},
-      {"content", nlohmann::json::array({{{"type", "text"}, {"text", prompt}}})}};
+  const nlohmann::json message = request["messages"];
   struct CallbackState {
     std::mutex mutex;
     std::condition_variable completed;
@@ -255,12 +289,18 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
     runtime->active_request = request_id;
     runtime->active_conversation = conversation->get();
     started = (*conversation)->SendMessageAsync(message,
-        [callback](absl::StatusOr<Message> chunk) {
+        [callback, on_text, callback_context](absl::StatusOr<Message> chunk) {
           if (!chunk.ok() || chunk->is_null()) {
             std::lock_guard<std::mutex> lock(callback->mutex);
             if (!chunk.ok()) callback->status = chunk.status();
             callback->done = true;
             callback->completed.notify_all();
+          } else if (on_text) {
+            std::string text = MessageText(*chunk);
+            if (!text.empty() && !on_text(callback_context, text.data(), text.size())) {
+              std::lock_guard<std::mutex> lock(callback->mutex);
+              callback->status = absl::InternalError("Text delivery callback failed.");
+            }
           }
         });
   }
@@ -309,17 +349,20 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
     return absl::InternalError("No completed model response in conversation history.");
   }
 
-  std::string text;
-  if (response.contains("content") && response["content"].is_array()) {
-    for (const auto& content : response["content"]) {
-      if (content.contains("text") && content["text"].is_string()) {
-        text += content["text"].get<std::string>();
-      }
+  std::string text = MessageText(response);
+  auto benchmark = (*conversation)->GetBenchmarkInfo();
+  if (benchmark.ok()) {
+    diagnostics << *benchmark << '\n';
+    if (benchmark->GetTotalPrefillTurns() > 0) {
+      auto prefill = benchmark->GetPrefillTurn(benchmark->GetTotalPrefillTurns() - 1);
+      if (prefill.ok()) metrics.prompt_tokens = prefill->num_tokens;
+    }
+    if (benchmark->GetTotalDecodeTurns() > 0) {
+      auto decode = benchmark->GetDecodeTurn(benchmark->GetTotalDecodeTurns() - 1);
+      if (decode.ok()) metrics.completion_tokens = decode->num_tokens;
     }
   }
-  if (text.empty()) return absl::InternalError("LiteRT-LM returned a message with no generated text.");
-  auto benchmark = (*conversation)->GetBenchmarkInfo();
-  if (benchmark.ok()) diagnostics << *benchmark << '\n';
+  metrics.limit_reached = metrics.completion_tokens >= max_tokens;
   diagnostics << "Generation completed with NPU requested and Google Tensor/EdgeTPU libraries loaded.\n"
               << "Confirm dispatch_delegate_kernel and SouthBound evidence in the load logs or logcat.\n";
   return text;
@@ -331,13 +374,17 @@ char* Copy(const std::string& text) {
   return buffer;
 }
 InferDroidResult* Result(const absl::Status& status, const std::string& text,
-                        const std::ostringstream& diagnostics, uint64_t handle = 0) {
+                        const std::ostringstream& diagnostics, uint64_t handle = 0,
+                        GenerationMetrics metrics = {}) {
   const std::string log = diagnostics.str();
   auto* result = static_cast<InferDroidResult*>(calloc(1, sizeof(InferDroidResult)));
   if (!result) return nullptr;
   result->success = status.ok();
   result->cancelled = absl::IsCancelled(status);
   result->engine_handle = handle;
+  result->prompt_tokens = metrics.prompt_tokens;
+  result->completion_tokens = metrics.completion_tokens;
+  result->limit_reached = metrics.limit_reached;
   result->text = Copy(text);
   result->text_size = text.size();
   result->diagnostics = Copy(log);
@@ -374,18 +421,21 @@ InferDroidResult* inferdroid_engine_load(int fd, const char* path,
 }
 
 InferDroidResult* inferdroid_engine_generate(uint64_t handle, uint64_t request_id,
-    const char* prompt, int verbose) {
+    const char* request_json, int verbose,
+    int (*on_text)(void*, const char*, size_t), void* callback_context) {
   std::lock_guard<std::mutex> lock(inference_mutex);
   LogCapture capture;
   std::ostringstream diagnostics;
   auto runtime = FindEngine(handle);
+  GenerationMetrics metrics;
   absl::StatusOr<std::string> generated = runtime
-      ? Generate(runtime, request_id, prompt, verbose != 0, diagnostics)
+      ? Generate(runtime, request_id, request_json, verbose != 0,
+                 on_text, callback_context, metrics, diagnostics)
       : absl::StatusOr<std::string>(absl::FailedPreconditionError("No NPU engine is loaded."));
   capture.Stop();
   if (!generated.ok()) diagnostics << generated.status().ToString() << '\n';
   diagnostics << "\nNative request logs:\n" << capture.Text();
-  return Result(generated.status(), generated.ok() ? *generated : "", diagnostics);
+  return Result(generated.status(), generated.ok() ? *generated : "", diagnostics, 0, metrics);
 }
 
 void inferdroid_engine_cancel(uint64_t handle, uint64_t request_id) {
