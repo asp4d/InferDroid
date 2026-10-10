@@ -5,13 +5,15 @@
 # InferDroid
 
 A native **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
-E2B NPU path and independent **offline speech recognition** using sherpa-onnx
-and multilingual Whisper tiny on CPU. A Java foreground service retains the
+E2B NPU path, **offline speech recognition** with multilingual Whisper tiny,
+and **offline text to speech** with Supertonic 3 int8. The independent audio
+engines use sherpa-onnx on CPU. A Java foreground service retains the
 models between requests and serves an authenticated **OpenAI-compatible
-localhost API**, including live chat SSE and audio-file transcription. The UI
-shows generated text, speech transcripts, backend status, model/server controls,
+localhost API**, including live chat SSE, audio-file transcription, and WAV/PCM
+speech synthesis. The UI shows generated text, speech transcripts, audio preview/export,
+backend status, model/server controls,
 native diagnostics, and customizable themes and languages. Work runs off the
-UI thread and shares one active-work slot. TTS, vision, image generation, and
+UI thread and shares one active-work slot. Vision, image generation, and
 network tools are later work.
 
 **Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
@@ -43,12 +45,22 @@ initialization; warm WAV requests took 0.46–1.42 seconds. MP3, M4A/AAC, FLAC, 
 WebM/Opus, background serving, cancellation/recovery, and shared chat/speech
 429 responses passed. Sixteen lifecycle/API/audio tests passed, and Gemma
 NPU/SSE regression checks passed with both models loaded. Physical ASR accuracy
-checks used English recordings; Italian is supported by the multilingual model
-but has not yet been measured on an Italian recording.
+checks used English recordings; Italian support was not measured on an
+Italian recording during milestone 4.
+
+**Milestone 5 passed on the same device on 2026-10-11.** Local TTS is available
+through `POST /v1/audio/speech` and the UI.
+Supertonic 3 offers ten stock voices and 31 language codes, including English
+and Italian, with speed control. Output is **24 kHz mono PCM16**, wrapped in
+WAV by default or returned as raw PCM. The UI can play speech or save it through
+the system document picker. Real generation, playback/export, background serving,
+busy responses, cancellation/reuse, and duration limits passed. All twenty
+instrumentation tests and the Gemma NPU/SSE regression passed.
+See [TTS setup, licensing, and API limits](docs/tts.md).
 
 Read [the original handoff](pixel_local_ai_server_codex_handoff.md),
 [the verified native strategy](docs/native-integration.md), and
-[speech setup and limits](docs/speech-recognition.md) for exact source APIs,
+[speech recognition](docs/speech-recognition.md) and [TTS setup](docs/tts.md) for exact source APIs,
 hashes, storage decisions, and licensing notes.
 
 ## Acknowledgements & Development
@@ -160,11 +172,14 @@ stub APK. Rerun `build-native.sh` after changing `native/runtime_adapter.cc`.
 Java/UI/JNI-only changes use the normal Android Studio/Gradle build.
 
 `build-speech.sh` independently builds sherpa-onnx **1.13.8**, using its matched
-ONNX Runtime **1.28.2** Android binary. CPU ASR is explicitly selected; TTS and
-diarization are disabled. Prepared speech libraries and the matching C header
+ONNX Runtime **1.28.2** Android binary. CPU ASR and **Supertonic-only TTS** are
+enabled; other TTS families, eSpeak/piper, and diarization are excluded by the
+reproducible source selection in `prepare-tts-runtime.py`.
+Prepared speech libraries and the matching C header
 live in `native/artifacts/speech/`. This build does not replace the G5 stack.
 Both native build scripts package upstream dependency/license notices. See
-[the speech runtime pins and checksums](docs/speech-recognition.md).
+[the speech runtime pins and checksums](docs/speech-recognition.md) and
+[the separate Supertonic model license](docs/tts.md#model-and-licensing).
 
 ## Exact separate downloads
 
@@ -272,7 +287,7 @@ notification, and the app shows that actual permission state.
 
 ## Use the localhost API
 
-Select the chat model or import the speech model, scroll to **Local OpenAI API**,
+Select the chat model or import an ASR/TTS model, scroll to **Local OpenAI API**,
 and press **Start server**.
 Keep **Require local API key** enabled and use **Copy key** to configure a
 trusted client. The eye button beside the key shows or hides it; the key starts
@@ -285,16 +300,17 @@ backgrounded.
 | --- | --- |
 | OpenAI base URL | `http://127.0.0.1:8080/v1` |
 | Chat model ID | `gemma-4-E2B-it_Google_Tensor_G5` |
-| Speech model ID | `sherpa-onnx-whisper-tiny` |
+| ASR model ID | `sherpa-onnx-whisper-tiny` |
+| TTS model ID | `sherpa-onnx-supertonic-3-int8` |
 | Authorization | `Bearer <copied-local-key>` |
-| Endpoints | `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/audio/transcriptions` |
+| Endpoints | `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/audio/transcriptions`, `POST /v1/audio/speech` |
 
 Use `stream: true` for live SSE. Both UI and API requests use the same single
-inference slot across chat and speech; an overlap returns an OpenAI-style **429** error. Port, key,
+inference slot across chat, ASR, and TTS; an overlap returns an OpenAI-style **429** error. Port, key,
 and optional CORS settings persist and can be changed while the listener is
 stopped. **Stop server** cancels its active client request and retains the
 loaded models for UI use. **Unload / Stop** stops the server and drains/unloads
-both engines. Speech can be served without choosing or loading Gemma.
+all three engines. ASR/TTS can be served without choosing or loading Gemma.
 
 **GrapheneOS upgrade:** allow **Network** under InferDroid's app permissions;
 localhost sockets require it. This permission was disabled when the milestone
@@ -308,7 +324,9 @@ See [local-api.md](docs/local-api.md) for supported text messages and sampling
 parameters, error behavior, limits, CORS, and complete `curl` examples through
 `adb forward tcp:18080 tcp:8080`. File transcription uses multipart uploads;
 see [speech API parameters](docs/speech-recognition.md#openai-compatible-transcription-endpoint).
-Gemma multimodal audio/image input, TTS, tools, structured output, and
+Speech synthesis uses JSON and returns buffered WAV or PCM;
+see [TTS API parameters](docs/tts.md#openai-compatible-speech-endpoint).
+Gemma multimodal audio/image input, tools, structured output, and
 `/v1/completions` are later work.
 
 ## Use offline speech recognition
@@ -337,6 +355,33 @@ verbose JSON with duration/language. Longer recordings use consecutive
 for the current native decode to drain. No microphone permission is required.
 See [speech-recognition.md](docs/speech-recognition.md) for hashes, licensing,
 supported parameters, codec limits, and a multipart `curl` example.
+
+## Use offline text to speech
+
+Prepare the separate **139 MiB** model on the host and copy its folder to the Pixel:
+
+```bash
+./scripts/prepare-tts-model.sh
+adb shell mkdir -p /sdcard/AIModels
+adb push .deps/tts/models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11 /sdcard/AIModels/
+```
+
+In **Offline text to speech**, tap **Import TTS model folder** and select that
+folder. The app copies and verifies seven model/data files into private storage.
+Enter text, choose **F1–F5** or **M1–M5**, set language `en` or `it`, and tap
+**Generate speech**. **Play**, **Stop audio**, and **Save WAV** control the result.
+Leaving the Activity stops preview playback; generation continues in the service.
+**Load TTS** initializes first, and **Unload TTS** releases only Supertonic.
+
+The API requires `model`, `input`, and `voice`; `language` defaults to `en`.
+`tts-1` and six familiar voice names are aliases for this local model's stock
+voices. Only **WAV and PCM** outputs are supported; MP3/AAC/Opus/FLAC output,
+speech SSE, voice cloning, and voice instructions receive explicit errors.
+Input is limited to **4096 characters**, output to **120 seconds**, and speed
+to **0.25–2.0**. The app makes no model downloads or outbound inference requests.
+Model weights use **OpenRAIL-M**, separately from the app's Apache license.
+See [tts.md](docs/tts.md) for the exact bundle, hashes, all language codes,
+compatibility mappings, cancellation behavior, and a `curl` example.
 
 ## UI Customization, Themes & Languages
 
@@ -414,16 +459,16 @@ python3 scripts/generate-icons.py
 ## Build and device verification
 
 Assembly and lint were rerun with JDK 21, Gradle 9.8.1 / AGP 9.4.1 /
-compile SDK 37 for milestone 4 on 2026-10-10.
+compile SDK 37 for milestone 5 on 2026-10-11.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
-- Independent ASR-only sherpa-onnx runtime built from pinned sources, with the
+- Independent ASR/Supertonic sherpa-onnx runtime built from pinned sources, with the
   matching ONNX Runtime and license notices. The G5 stack remains pinned.
 - Java, CMake/JNI, debug APK assembly, and Android lint passed (0 errors).
   Lint reports 12 warnings, including the existing theme/AppCompat resources,
   dependency/catalog notices, arm64-only targeting, and target API 36.
 - APK inspection confirmed seven arm64 native libraries and no
-  `.litertlm`/`.onnx` model. The milestone 4 debug APK is 41.1 MB (39.2 MiB).
+  `.litertlm`/`.onnx` model. The milestone 5 debug APK is 44.1 MB (42.1 MiB).
 - `adb install -r` succeeded on the connected Pixel 10. `MainActivity` launched
   successfully and its UI was inspected. Android confirmed extracted native
   libraries, arm64 ABI, and `libedgetpu_litert.so` in the app's vendor library
@@ -446,13 +491,21 @@ compile SDK 37 for milestone 4 on 2026-10-10.
   file selection, encoded formats, background serving, shared chat/speech 429,
   disconnect cancellation/reuse, and the Gemma NPU/SSE regression were checked.
   Full Unload / Stop released both engines and removed foreground status.
-- **Sixteen device instrumentation tests passed** for the original lifecycle,
+- **Milestone 5: real offline TTS passed**, including English/Italian generation,
+  WAV/PCM responses, voice/speed translation, Android preview, document export,
+  background serving, cross-engine busy responses, disconnect recovery, and
+  the 120-second output limit. Slow chunks are split before exceeding native
+  positional capacity; errors stay inside the C boundary. All three models
+  stayed resident during the NPU/SSE regression, then full unload released them.
+- **Twenty device instrumentation tests passed** for the original lifecycle,
   UTF-8 boundaries, authentication/validation, history/parameter translation,
   live streaming, UI/API contention, disconnect/recovery, CORS/port conflict,
   stop/restart/key rotation, PCM/resampling/duration bounds, multipart validation,
   transcription formats, cross-engine contention, speech cancellation/recovery,
-  and stopping during load/import. They use fake engines to control timing and
-  the real Java audio decoder; physical CPU ASR and NPU execution were verified
+  stopping during load/import, TTS validation/voice/Unicode translation,
+  WAV/PCM output, duration-limit errors/reuse, TTS busy/disconnect ownership,
+  and stopping during TTS load/import. They use fake engines to control timing and
+  the real Java audio decoder; physical CPU ASR/TTS and NPU execution were verified
   separately through the HTTP service.
 
 To rerun the lifecycle/API tests on a connected Android device, allow the
@@ -466,10 +519,10 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
 ```
 
-Expected result: `Lifecycle/API tests: 16 passed, 0 failed.` The runner uses only
+Expected result: `Lifecycle/API tests: 20 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
-InferDroid afterward and press Run or Start server for a real NPU request.
+InferDroid afterward and press Run, Generate speech, or Start server for a real request.
 
 ## Author
 
@@ -482,3 +535,6 @@ Developed by **Alessandro Spadini**:
 Copyright © 2026 Alessandro Spadini.
 
 This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+Separately downloaded model weights retain their upstream licenses; Supertonic 3
+uses [OpenRAIL-M](docs/tts.md#model-and-licensing), including its use restrictions.
+Native dependency notices are packaged in `assets/third_party/`.

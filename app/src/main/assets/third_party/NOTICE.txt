@@ -37,8 +37,13 @@ No executable from that project's release is used as InferDroid's engine.
 sherpa-onnx v1.13.8
 https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8
 Copyright Xiaomi Corporation and contributors. Apache License 2.0.
-Built from the pinned source archive with TTS and speaker diarization disabled.
-InferDroid's independent JNI wrapper uses its offline C API for CPU ASR.
+Built from the pinned source archive with ASR and Supertonic-only TTS enabled;
+speaker diarization is disabled. scripts/prepare-tts-runtime.py selects only the
+Supertonic TTS factory/sources in an ignored copy of the upstream build tree.
+Additional changes: positional-capacity checks, private text redaction in error
+logs, and exception-safe TTS C wrappers compiled inside the sherpa library.
+ASR implementation sources remain unchanged.
+InferDroid's independent JNI wrappers use its offline C API for CPU ASR and TTS.
 
 ONNX Runtime 1.28.2
 https://github.com/microsoft/onnxruntime/tree/v1.28.2
@@ -55,3 +60,12 @@ Copyright OpenAI. MIT License.
 The separate Whisper tiny model bundle is exported/quantized by sherpa-onnx.
 Whisper weights and public test recordings are not included in the APK or Git.
 The upstream model license is retained under generated/speech/ for convenience.
+
+Supertonic 3
+https://huggingface.co/Supertone/supertonic-3
+Copyright Supertone Inc. Model weights: BigScience Open RAIL-M License,
+including its use restrictions; see generated/speech/supertonic-model-LICENSE.txt.
+The sherpa model archive's MIT LICENSE covers Supertone's sample code, which
+the upstream TTS implementation adapts; retained in supertonic-code-LICENSE.txt.
+It does not replace the separate upstream model license. Model/data files and generated
+speech are not bundled in the APK or Git. No voice cloning is implemented.

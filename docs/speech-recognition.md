@@ -3,7 +3,7 @@
 InferDroid transcribes local audio files using **sherpa-onnx 1.13.8** and
 **multilingual Whisper tiny int8**. This is an independent **CPU** engine with
 two ONNX Runtime threads. Gemma remains on the verified Tensor G5 NPU path.
-Neither inference engine makes outbound requests. No OpenAI account is needed.
+The inference engines make no outbound requests. No OpenAI account is needed.
 
 ## Prepare the runtime and model
 
@@ -20,8 +20,10 @@ export ANDROID_NDK_HOME="$PWD/.deps/toolchains/android-ndk-r30-beta1"
 
 The build script needs Bash, CMake, a C++ build tool (`make`), curl, tar,
 unzip, Python, rg, and the pinned NDK. `SPEECH_JOBS` defaults to 6. It builds
-the C API from the pinned source archive, with TTS, diarization, microphone
-helpers, WebSockets, and upstream JNI disabled. It does not rebuild or change
+the C API from the pinned source archive. Since milestone 5 it also enables
+[Supertonic-only TTS](tts.md); other TTS families and eSpeak/piper are excluded.
+Diarization, microphone helpers, WebSockets, and upstream JNI are disabled.
+It does not rebuild or change
 LiteRT. ONNX Runtime is the exact Android binary selected by this sherpa tag's
 build recipe. Dependency notices are packaged in the APK.
 
@@ -70,7 +72,7 @@ This exact bundle is initially supported; other Whisper exports and ASR model
 families are rejected by checksum. Importing a new bundle unloads only speech.
 Stop the HTTP listener before replacing models. `sherpa-onnx` is Apache 2.0,
 ONNX Runtime and Whisper are MIT licensed; packaged notices identify the
-compiled dependencies. The ASR build does not include TTS phonemizers.
+compiled dependencies. The shared audio build includes no TTS phonemizers.
 
 ## Use files in the app
 
@@ -143,14 +145,14 @@ temperature, non-empty prompts, streaming, and other fields receive explicit
 form fields are rejected. Multipart accepts up to 16 parts, 2 KiB headers per
 part, 1 KiB per text field, and 16 KiB total metadata beyond the file limit.
 
-Chat and speech use **one shared active-work slot**. An overlapping UI/API
-operation receives 429 `engine_busy`; there is no inference queue. Both models
+Chat, ASR, and TTS use **one shared active-work slot**. An overlapping UI/API
+operation receives 429 `engine_busy`; there is no inference queue. All three models
 may remain loaded, and their backends are shown separately. HTTP disconnect
 and server stop cancel only the owning request. sherpa's offline decode has
 no abort operation: cancellation stops decoding/copy work at cooperative
 boundaries and waits for the current native chunk to finish. A cancelled
 transcript is discarded; the slot and model remain owned until native work
-drains. Full **Unload / Stop** waits for both independent engine workers before
+drains. Full **Unload / Stop** waits for all three independent engine workers before
 removing foreground status. Idle models do not hold wake locks.
 
 The server returns 503 `speech_model_unavailable` before inference when no
@@ -181,8 +183,9 @@ file selection, background serving, Busy/429, disconnect recovery, and Gemma
 NPU/SSE regression checks. The test audio comes from public WAV files and
 reference transcripts supplied in the official sherpa model archive; no user
 recordings were needed. Physical recognition measurements are **English**.
-Italian support follows the multilingual model/language API and has not been
-measured on an Italian recording yet. See the
+Italian support follows the multilingual model/language API. Milestone 5 also
+exercised an Italian TTS-to-ASR round trip with recognition errors; that synthetic
+clip does not establish accuracy on real Italian recordings. See the
 [verification record](milestone-verification.md) and README test commands.
 
 Implementation references:

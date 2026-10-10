@@ -204,7 +204,7 @@ the HTTP server binds only to `127.0.0.1` and makes no outbound requests.
 The wake lock is released between operations. `START_NOT_STICKY` means a
 process kill does not silently reinitialize the model or restart the listener.
 An independent ASR runtime is described in
-[speech-recognition.md](speech-recognition.md). TTS, Gemma multimodal input,
+[speech-recognition.md](speech-recognition.md) and [TTS](tts.md). Gemma multimodal input,
 vision, image generation, and ToolManager remain future work.
 
 Two milestone 1 APK runs and six milestone 2 service requests passed on
@@ -225,3 +225,16 @@ APK adds three speech libraries and their license notices, without model
 weights. Real NPU chat/SSE passed again with both models loaded. Exact speech
 sources, archive/model hashes, and CPU/cancellation limits are documented in
 [speech-recognition.md](speech-recognition.md).
+
+Milestone 5 extends the same speech JNI library with Supertonic 3 int8 TTS,
+also through sherpa's C API and the matched ONNX Runtime CPU backend. A
+reproducible build-tree selection enables only Supertonic's TTS implementation,
+leaving ASR sources untouched and excluding eSpeak/piper. A model-specific
+positional-capacity check and exception-safe C wrappers prevent long/slow
+requests from escaping the native C boundary. Four independent
+ONNX sessions stay resident. JNI resamples the pinned model's native 44.1 kHz
+float audio into bounded 24 kHz mono PCM16; Java wraps WAV or serves raw PCM.
+The API uses a protocol-neutral `SynthesisGateway` and a separate lifecycle
+worker, sharing service ownership/admission with chat/ASR. Model checksums,
+OpenRAIL-M licensing, voice mapping, and cooperative cancellation limits are
+in [tts.md](tts.md). No LiteRT/G5 dependency was replaced.

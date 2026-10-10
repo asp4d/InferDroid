@@ -101,6 +101,32 @@
         <TextView android:id="@+id/transcript" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:textIsSelectable="true" android:textSize="17sp" android:minHeight="32dp" android:paddingTop="8dp" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="@string/tts_label" android:textStyle="bold" android:textSize="18sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/tts_help" />
+        <Button android:id="@+id/import_tts_model" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/import_tts_model" />
+        <TextView android:id="@+id/tts_model_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/tts_model_missing" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" style="?android:attr/buttonBarStyle">
+            <Button android:id="@+id/load_tts_model" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/load_tts_model" />
+            <Button android:id="@+id/unload_tts_model" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/unload_tts_model" />
+        </LinearLayout>
+        <EditText android:id="@+id/tts_text" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:hint="@string/tts_text" android:text="@string/tts_default_text" android:inputType="textMultiLine|textCapSentences"
+            android:gravity="top" android:minLines="2" android:maxLines="6" android:maxLength="4096" android:importantForAutofill="no" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/tts_voice" android:labelFor="@id/tts_voice" />
+        <Spinner android:id="@+id/tts_voice" android:layout_width="match_parent" android:layout_height="48dp" />
+        <EditText android:id="@+id/tts_language" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:hint="@string/tts_language" android:inputType="text" android:maxLength="2" android:singleLine="true" android:importantForAutofill="no" />
+        <EditText android:id="@+id/tts_speed" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:hint="@string/tts_speed" android:inputType="numberDecimal" android:maxLength="4" android:singleLine="true" android:importantForAutofill="no" />
+        <Button android:id="@+id/synthesize_audio" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/synthesize_audio" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" style="?android:attr/buttonBarStyle">
+            <Button android:id="@+id/play_tts" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/play_tts" />
+            <Button android:id="@+id/stop_tts_playback" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/stop_tts_playback" />
+            <Button android:id="@+id/save_tts" style="?android:attr/buttonBarButtonStyle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/save_tts" />
+        </LinearLayout>
+        <TextView android:id="@+id/tts_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/tts_model_missing" android:accessibilityLiveRegion="polite" android:paddingTop="8dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="12dp" android:text="@string/server_label" android:textStyle="bold" android:textSize="18sp" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/server_help" />

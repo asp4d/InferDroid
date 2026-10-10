@@ -25,6 +25,12 @@ import dev.inferdroid.speech.SherpaSpeechEngine;
 import dev.inferdroid.speech.TranscriptionRequest;
 import dev.inferdroid.speech.TranscriptionListener;
 import dev.inferdroid.server.TranscriptionGateway;
+import dev.inferdroid.server.SynthesisGateway;
+import dev.inferdroid.tts.TtsManager;
+import dev.inferdroid.tts.TtsModelStore;
+import dev.inferdroid.tts.SherpaTtsEngine;
+import dev.inferdroid.tts.SynthesisRequest;
+import dev.inferdroid.tts.SynthesisListener;
 import dev.inferdroid.server.ChatGateway;
 import dev.inferdroid.server.OpenAiServer;
 import dev.inferdroid.server.ServerConfig;
@@ -36,7 +42,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 /** Private foreground owner of the retained model and optional loopback server. */
-public final class InferenceService extends Service implements EngineManager.Listener, SpeechManager.Listener {
+public final class InferenceService extends Service implements EngineManager.Listener, SpeechManager.Listener, TtsManager.Listener {
     public interface ServerListener { void onServerChanged(boolean running, String status); }
     private static final String CHANNEL = "inference";
     private static final int NOTIFICATION = 1;
@@ -47,6 +53,8 @@ public final class InferenceService extends Service implements EngineManager.Lis
     private EngineManager manager;
     private SpeechManager speech;
     private SpeechModelStore speechModels;
+    private TtsManager tts;
+    private TtsModelStore ttsModels;
     private final WorkGate gate = new WorkGate();
     private NotificationManager notifications;
     private boolean foreground;
@@ -72,6 +80,9 @@ public final class InferenceService extends Service implements EngineManager.Lis
         manager = new EngineManager(new GemmaInferenceEngine(this), workGuard("InferDroid:inference"), gate);
         speechModels = new SpeechModelStore(this);
         speech = new SpeechManager(new SherpaSpeechEngine(speechModels), workGuard("InferDroid:speech"), gate);
+        ttsModels = new TtsModelStore(this);
+        tts = new TtsManager(new SherpaTtsEngine(ttsModels), workGuard("InferDroid:tts"), gate);
+        tts.attach(this);
         speech.attach(this);
         manager.attach(this);
     }
@@ -90,7 +101,9 @@ public final class InferenceService extends Service implements EngineManager.Lis
     public EngineManager getManager() { return manager; }
     public SpeechManager getSpeechManager() { return speech; }
     public boolean hasSpeechModel() { return speechModels.isAvailable(); }
-    public boolean isBusy() { return gate.isBusy() || manager.getState().busy || speech.getState().busy; }
+    public TtsManager getTtsManager() { return tts; }
+    public boolean hasTtsModel() { return ttsModels.isAvailable(); }
+    public boolean isBusy() { return gate.isBusy() || manager.getState().busy || speech.getState().busy || tts.getState().busy; }
 
     public boolean isServerRunning() { return server != null && server.isRunning(); }
     public void attachServer(ServerListener listener) {
@@ -134,6 +147,16 @@ public final class InferenceService extends Service implements EngineManager.Lis
                 catch (Exception error) { admission.cancel(false); cancel(listener); throw error; }
             }
             @Override public void cancel(TranscriptionListener listener) { main.post(() -> speech.cancel(listener)); }
+        }, new SynthesisGateway() {
+            @Override public boolean isAvailable() { return ttsModels.isAvailable(); }
+            @Override public boolean synthesize(SynthesisRequest request, SynthesisListener listener) throws Exception {
+                FutureTask<Boolean> admission = new FutureTask<>(() ->
+                        !shuttingDown && isServerRunning() && tts.synthesize(request, listener));
+                main.post(admission);
+                try { return admission.get(5, TimeUnit.SECONDS); }
+                catch (Exception error) { admission.cancel(false); cancel(listener); throw error; }
+            }
+            @Override public void cancel(SynthesisListener owner) { main.post(() -> tts.cancel(owner)); }
         }, () -> main.post(() -> {
             // A stopped older server must not close a newly started listener.
             if (server != null && !server.isRunning()) {
@@ -178,7 +201,8 @@ public final class InferenceService extends Service implements EngineManager.Lis
 
     private void stopIfIdle() {
         if (!isServerRunning() && manager.getState().phase == EngineManager.Phase.UNLOADED
-                && speech.getState().phase == SpeechManager.Phase.UNLOADED) {
+                && speech.getState().phase == SpeechManager.Phase.UNLOADED
+                && tts.getState().phase == TtsManager.Phase.UNLOADED) {
             wanted = false;
             foreground = false;
             stopForeground(STOP_FOREGROUND_REMOVE);
@@ -214,14 +238,30 @@ public final class InferenceService extends Service implements EngineManager.Lis
         return speech.transcribe(request, null);
     }
     public void unloadSpeech() { speech.unload(this::stopIfIdle); }
-    public void cancel() { manager.cancel(); speech.cancel(); }
+    public boolean importTtsModel(Uri folder) {
+        if (shuttingDown || isBusy() || isServerRunning()) return false;
+        ensureForeground();
+        return tts.importModel(token -> ttsModels.importTree(folder, token));
+    }
+    public boolean loadTts() {
+        if (shuttingDown || isBusy()) return false;
+        ensureForeground();
+        return tts.load();
+    }
+    public boolean synthesize(SynthesisRequest request) {
+        if (shuttingDown || isBusy()) return false;
+        ensureForeground();
+        return tts.synthesize(request, null);
+    }
+    public void unloadTts() { tts.unload(this::stopIfIdle); }
+    public void cancel() { manager.cancel(); speech.cancel(); tts.cancel(); }
 
     public void unload() {
         if (shuttingDown) return;
         shuttingDown = true;
         closeServer();
         publishServer();
-        int[] remaining = {2};
+        int[] remaining = {3};
         Runnable stopped = () -> {
             if (--remaining[0] != 0) return;
             wanted = false;
@@ -232,6 +272,7 @@ public final class InferenceService extends Service implements EngineManager.Lis
         };
         manager.unload(stopped);
         speech.unload(stopped);
+        tts.unload(stopped);
     }
 
     private void ensureForeground() {
@@ -267,7 +308,8 @@ public final class InferenceService extends Service implements EngineManager.Lis
     @Override public void onStateChanged(EngineManager.State state) {
         if (!foreground) return;
         if (state.phase == EngineManager.Phase.UNLOADED && !isServerRunning()
-                && speech.getState().phase == SpeechManager.Phase.UNLOADED) {
+                && speech.getState().phase == SpeechManager.Phase.UNLOADED
+                && tts.getState().phase == TtsManager.Phase.UNLOADED) {
             stopIfIdle();
         } else {
             notifications.notify(NOTIFICATION, notification(state));
@@ -280,26 +322,34 @@ public final class InferenceService extends Service implements EngineManager.Lis
         if (foreground) notifications.notify(NOTIFICATION, notification(manager.getState()));
     }
 
+    @Override public void onTtsChanged(TtsManager.State state) {
+        if (!foreground) return;
+        stopIfIdle();
+        if (foreground) notifications.notify(NOTIFICATION, notification(manager.getState()));
+    }
+
     private Notification notification(EngineManager.State state) {
         PendingIntent open = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         SpeechManager.State audio = speech.getState();
-        String details = state.status + "\n" + audio.status;
-        String current = audio.busy || audio.loaded && !state.loaded ? audio.status : state.status;
+        TtsManager.State synthesis = tts.getState();
+        String details = state.status + "\n" + audio.status + "\n" + synthesis.status;
+        boolean showTts = synthesis.busy || synthesis.loaded && !state.loaded && !audio.loaded;
+        String current = showTts ? synthesis.status : audio.busy || audio.loaded && !state.loaded ? audio.status : state.status;
         Notification.Builder builder = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentTitle(getString(R.string.notification_title))
                 .setContentText(isServerRunning() ? serverStatus : current)
                 .setStyle(new Notification.BigTextStyle().bigText(isServerRunning()
                         ? serverStatus + "\n" + details : details))
-                .setSubText(audio.busy || audio.loaded && !state.loaded ? "Whisper tiny · CPU" : state.backend)
+                .setSubText(showTts ? "Supertonic 3 · CPU" : audio.busy || audio.loaded && !state.loaded ? "Whisper tiny · CPU" : state.backend)
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
-        if (state.canCancel || audio.canCancel) builder.addAction(new Notification.Action.Builder(
+        if (state.canCancel || audio.canCancel || synthesis.canCancel) builder.addAction(new Notification.Action.Builder(
                 null, getString(R.string.cancel), action(CANCEL, 1)).build());
         builder.addAction(new Notification.Action.Builder(
                 null, getString(R.string.unload), action(STOP, 2)).build());
@@ -320,8 +370,10 @@ public final class InferenceService extends Service implements EngineManager.Lis
         serverListeners.clear();
         manager.detach(this);
         speech.detach(this);
+        tts.detach(this);
         manager.close();
         speech.close();
+        tts.close();
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
     }

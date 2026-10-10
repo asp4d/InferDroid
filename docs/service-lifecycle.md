@@ -1,9 +1,10 @@
-# Inference service lifecycle — milestones 2–4
+# Inference service lifecycle — milestones 2–5
 
 `InferenceService` owns the Gemma `EngineManager`, an independent speech
-`SpeechManager` / `SherpaSpeechEngine`, a shared `WorkGate`, and an optional
+`SpeechManager` / `SherpaSpeechEngine`, a separate `TtsManager` / `SherpaTtsEngine`,
+a shared `WorkGate`, and an optional
 `OpenAiServer`. Opening the Activity only binds an unloaded service.
-Chat/speech load or inference, speech import, or Start server starts the foreground service;
+Chat/ASR/TTS load or inference, audio-model import, or Start server starts the foreground service;
 it promotes itself before native work or HTTP listening.
 
 ```text
@@ -13,7 +14,7 @@ LOADING / READY / GENERATING -- Unload / Stop --> STOPPING --> UNLOADED
 ```
 
 A failed initialization returns to UNLOADED with diagnostics. The foreground
-service stops if no HTTP listener is running and speech is also unloaded; an active listener remains
+service stops if no HTTP listener is running and both audio engines are also unloaded; an active listener remains
 available for discovery and subsequent requests. The backend is Google Tensor NPU;
 there is no CPU retry. A loaded engine has not yet verified generation until
 its first successful request.
@@ -43,7 +44,7 @@ started loopback listener and the socket-required `INTERNET` permission.
 Start server keeps the service foreground even while the engine is unloaded.
 Stop server closes all client connections and cancels only its active request;
 already loaded models stay available to the UI. Unload / Stop also closes
-the HTTP listener before draining and unloading both native engines. API
+the HTTP listener before draining and unloading all three native engines. API
 disconnect cancellation is scoped to its owning listener, and native
 cancellation snapshots the engine/request ID before entering the control
 executor. Delayed cancellation cannot affect the next request.
@@ -80,11 +81,11 @@ Speech starts UNLOADED. Import copies/checksums the tested Whisper bundle on
 the speech worker; it atomically replaces the private model directory and
 returns unloaded. Load speech or transcription transitions through LOADING
 to READY / TRANSCRIBING. Transcription keeps the model resident; Unload speech
-drains/releases only ASR. Full Unload / Stop waits for chat and speech cleanup
-before removing foreground state. Both engine workers use separate work-time
-wake locks; either retained engine or the listener keeps the service foreground.
+drains/releases only ASR. Full Unload / Stop waits for chat, ASR, and TTS cleanup
+before removing foreground state. Each engine worker uses a separate work-time
+wake lock; any retained engine or the listener keeps the service foreground.
 
-`WorkGate` admits one load/import/inference operation across both managers.
+`WorkGate` admits one load/import/inference operation across all three managers.
 Cleanup holds its owner's slot until it finishes; independent engines may
 drain together while all new work remains rejected. HTTP and UI speech requests
 share this gate with chat. A listener identity scopes disconnect cancellation
@@ -100,4 +101,27 @@ There is no microphone capture or foreground microphone permission.
 
 Sixteen lifecycle/API/audio tests and physical CPU ASR/NPU regression checks
 passed on 2026-10-10. See [speech setup and limits](speech-recognition.md) and
+[the verification record](milestone-verification.md).
+
+## Independent TTS lifecycle
+
+TTS also starts UNLOADED. Import atomically copies/checksums the seven pinned
+Supertonic model/data files on its own worker, unloads only TTS, and returns
+unloaded. Explicit load or synthesis transitions through LOADING to READY /
+SYNTHESIZING. Four ONNX CPU sessions remain resident between requests.
+**Unload TTS** drains/releases only Supertonic; ASR and Gemma remain available.
+
+TTS uses the same admission gate and request-owner cancellation rules. A
+native synthesis call cannot be interrupted through this bridge; cancellation
+is checked between at-most-240-character chunks, discards the result, and
+waits for the active call before admitting more work or freeing model sessions.
+Full Unload / Stop waits for three cleanup callbacks before removing foreground
+state. Stop server cancels only its clients and retains all loaded models.
+
+Generated audio is bounded and held in memory. Activity preview uses an
+independent AudioTrack worker and stops on Activity background/destroy.
+Explicit document export writes a WAV off the main thread. Neither preview
+nor an idle loaded TTS model keeps the inference wake lock held.
+Twenty lifecycle/API/audio tests passed, alongside real CPU TTS and retained
+NPU regression checks. See [TTS setup and limits](tts.md) and
 [the verification record](milestone-verification.md).

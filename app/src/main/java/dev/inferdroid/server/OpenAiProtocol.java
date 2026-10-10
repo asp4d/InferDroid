@@ -158,7 +158,7 @@ final class OpenAiProtocol {
 
     // Android's JSONObject parser accepts JavaScript-like syntax. Validate strict
     // JSON first, with an explicit depth bound and duplicate-name rejection.
-    private static void validateJson(String text) throws ApiError {
+    static void validateJson(String text) throws ApiError {
         try (JsonReader reader = new JsonReader(new StringReader(text))) {
             ArrayDeque<Set<String>> objects = new ArrayDeque<>();
             int depth = 0;
@@ -233,9 +233,13 @@ final class OpenAiProtocol {
         return models(true, false);
     }
     static JSONObject models(boolean chat, boolean speech) throws JSONException {
+        return models(chat, speech, false);
+    }
+    static JSONObject models(boolean chat, boolean speech, boolean tts) throws JSONException {
         JSONArray models = new JSONArray();
         if (chat) models.put(model(MODEL));
         if (speech) models.put(model(dev.inferdroid.speech.SpeechModelStore.MODEL_ID));
+        if (tts) models.put(model(dev.inferdroid.tts.TtsModelStore.MODEL_ID));
         return new JSONObject().put("object", "list").put("data", models);
     }
     private static JSONObject model(String id) throws JSONException {

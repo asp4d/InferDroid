@@ -21,6 +21,8 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.Spinner;
+import android.widget.ArrayAdapter;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import dev.inferdroid.engine.EngineManager;
@@ -29,15 +31,41 @@ import dev.inferdroid.server.ServerConfig;
 import dev.inferdroid.speech.SpeechManager;
 import dev.inferdroid.speech.SpeechLanguages;
 import dev.inferdroid.speech.TranscriptionRequest;
+import dev.inferdroid.tts.TtsManager;
+import dev.inferdroid.tts.TtsVoices;
+import dev.inferdroid.tts.TtsPlayback;
+import dev.inferdroid.tts.PcmAudio;
+import dev.inferdroid.tts.SynthesisRequest;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public final class MainActivity extends AppCompatActivity implements EngineManager.Listener, InferenceService.ServerListener, SpeechManager.Listener {
+public final class MainActivity extends AppCompatActivity implements EngineManager.Listener, InferenceService.ServerListener, SpeechManager.Listener, TtsManager.Listener {
     private static final int PICK_MODEL = 1;
     private static final int NOTIFICATIONS = 2;
     private static final int PICK_SPEECH_MODEL = 3;
     private static final int PICK_AUDIO = 4;
+    private static final int PICK_TTS_MODEL = 5;
+    private static final int SAVE_TTS = 6;
     private InferenceService service;
     private EngineManager manager;
     private SpeechManager speech;
+    private TtsManager tts;
+    private Button importTts;
+    private Button loadTts;
+    private Button unloadTts;
+    private Button synthesize;
+    private Button playTts;
+    private Button saveTts;
+    private EditText ttsText;
+    private EditText ttsLanguage;
+    private EditText ttsSpeed;
+    private Spinner ttsVoice;
+    private TextView ttsModelStatus;
+    private TextView ttsStatus;
+    private final TtsPlayback playback = new TtsPlayback();
+    private final ExecutorService exportWorker = Executors.newSingleThreadExecutor();
+    private PcmAudio exportAudio;
+    private Uri pendingTtsExport;
     private Button importSpeech;
     private Button loadSpeech;
     private Button unloadSpeech;
@@ -87,18 +115,23 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
             service = ((InferenceService.LocalBinder) binder).getService();
             manager = service.getManager();
             speech = service.getSpeechManager();
+            tts = service.getTtsManager();
             manager.attach(MainActivity.this);
             speech.attach(MainActivity.this);
+            tts.attach(MainActivity.this);
             service.attachServer(MainActivity.this);
             executePending();
+            exportTtsIfReady();
         }
 
         @Override public void onServiceDisconnected(ComponentName name) {
             if (manager != null) manager.detach(MainActivity.this);
             if (speech != null) speech.detach(MainActivity.this);
+            if (tts != null) tts.detach(MainActivity.this);
             if (service != null) service.detachServer(MainActivity.this);
             manager = null;
             speech = null;
+            tts = null;
             service = null;
             setDisconnected();
             status.setText(R.string.service_disconnected);
@@ -162,6 +195,46 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         }));
         unloadSpeech.setOnClickListener(view -> { if (service != null) service.unloadSpeech(); });
         transcribe.setOnClickListener(view -> transcribeAudio());
+        importTts = findViewById(R.id.import_tts_model);
+        loadTts = findViewById(R.id.load_tts_model);
+        unloadTts = findViewById(R.id.unload_tts_model);
+        synthesize = findViewById(R.id.synthesize_audio);
+        playTts = findViewById(R.id.play_tts);
+        saveTts = findViewById(R.id.save_tts);
+        ttsText = findViewById(R.id.tts_text);
+        ttsLanguage = findViewById(R.id.tts_language);
+        ttsSpeed = findViewById(R.id.tts_speed);
+        ttsVoice = findViewById(R.id.tts_voice);
+        ttsModelStatus = findViewById(R.id.tts_model_status);
+        ttsStatus = findViewById(R.id.tts_status);
+        ArrayAdapter<String> voices = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, TtsVoices.NAMES);
+        voices.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ttsVoice.setAdapter(voices);
+        ttsVoice.setSelection(Math.max(0, Math.min(9, preferences.getInt("tts_voice", 0))));
+        String defaultLanguage = getResources().getConfiguration().getLocales().get(0).getLanguage().equals("it") ? "it" : "en";
+        ttsLanguage.setText(preferences.getString("tts_language", defaultLanguage));
+        ttsSpeed.setText(preferences.getString("tts_speed", "1.0"));
+        importTts.setOnClickListener(view -> {
+            Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            picker.putExtra(DocumentsContract.EXTRA_INITIAL_URI, Uri.parse("content://com.android.externalstorage.documents/document/primary%3AAIModels"));
+            startActivityForResult(picker, PICK_TTS_MODEL);
+        });
+        loadTts.setOnClickListener(view -> withNotificationPermission(() -> {
+            if (!service.loadTts()) ttsStatus.setText(R.string.engine_busy);
+        }));
+        unloadTts.setOnClickListener(view -> { playback.stop(); if (service != null) service.unloadTts(); });
+        synthesize.setOnClickListener(view -> synthesizeAudio());
+        playTts.setOnClickListener(view -> {
+            PcmAudio generated = generatedAudio();
+            if (generated != null) playback.play(generated, () -> ttsStatus.setText(R.string.tts_playback_failed));
+        });
+        findViewById(R.id.stop_tts_playback).setOnClickListener(view -> playback.stop());
+        saveTts.setOnClickListener(view -> {
+            exportAudio = generatedAudio();
+            if (exportAudio != null) startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                    .addCategory(Intent.CATEGORY_OPENABLE).setType("audio/wav")
+                    .putExtra(Intent.EXTRA_TITLE, "inferdroid-speech.wav"), SAVE_TTS);
+        });
         serverPreferences = getSharedPreferences("server", MODE_PRIVATE);
         serverPort = findViewById(R.id.server_port);
         apiKey = findViewById(R.id.api_key);
@@ -202,7 +275,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         choose.setOnClickListener(view -> chooseModel());
         load.setOnClickListener(view -> loadModel());
         run.setOnClickListener(view -> runInference());
-        unload.setOnClickListener(view -> { if (service != null) service.unload(); });
+        unload.setOnClickListener(view -> { playback.stop(); if (service != null) service.unload(); });
         cancel.setOnClickListener(view -> { if (service != null) service.cancel(); });
         setDisconnected();
     }
@@ -226,16 +299,25 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
 
     @Override protected void onStop() {
         setApiKeyVisible(false);
+        playback.stop();
         started = false;
         if (manager != null) manager.detach(this);
         if (speech != null) speech.detach(this);
+        if (tts != null) tts.detach(this);
         if (service != null) service.detachServer(this);
         if (bound) unbindService(connection);
         bound = false;
         manager = null;
         speech = null;
+        tts = null;
         service = null;
         super.onStop();
+    }
+
+    @Override protected void onDestroy() {
+        playback.close();
+        exportWorker.shutdown();
+        super.onDestroy();
     }
 
     private void setDisconnected() {
@@ -250,6 +332,12 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         unloadSpeech.setEnabled(false);
         chooseAudio.setEnabled(false);
         transcribe.setEnabled(false);
+        importTts.setEnabled(false);
+        loadTts.setEnabled(false);
+        unloadTts.setEnabled(false);
+        synthesize.setEnabled(false);
+        playTts.setEnabled(false);
+        saveTts.setEnabled(false);
         status.setText(R.string.service_connecting);
     }
 
@@ -282,6 +370,17 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri selected = data.getData();
+            if (requestCode == SAVE_TTS) {
+                pendingTtsExport = selected;
+                exportTtsIfReady();
+                return;
+            }
+            if (requestCode == PICK_TTS_MODEL) {
+                withNotificationPermission(() -> {
+                    if (!service.importTtsModel(selected)) ttsStatus.setText(R.string.engine_busy);
+                });
+                return;
+            }
             if (requestCode == PICK_SPEECH_MODEL) {
                 withNotificationPermission(() -> {
                     if (!service.importSpeechModel(selected)) speechStatus.setText(R.string.engine_busy);
@@ -299,6 +398,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
                 return;
             }
         }
+        if (requestCode == SAVE_TTS) exportAudio = null;
         if (requestCode != PICK_MODEL || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         modelSource.setText(uri.toString());
@@ -391,6 +491,42 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         });
     }
 
+    private void synthesizeAudio() {
+        try {
+            String language = ttsLanguage.getText().toString().trim().toLowerCase(java.util.Locale.ROOT);
+            String speed = ttsSpeed.getText().toString().trim().replace(',', '.');
+            int voice = ttsVoice.getSelectedItemPosition();
+            SynthesisRequest request = new SynthesisRequest(ttsText.getText().toString(), language, voice, Float.parseFloat(speed));
+            preferences.edit().putString("tts_language", language).putString("tts_speed", speed).putInt("tts_voice", voice).apply();
+            playback.stop();
+            withNotificationPermission(() -> { if (!service.synthesize(request)) ttsStatus.setText(R.string.engine_busy); });
+        } catch (IllegalArgumentException error) { ttsStatus.setText(error.getMessage()); }
+    }
+
+    private PcmAudio generatedAudio() {
+        if (tts == null || tts.getState().result == null) return null;
+        return tts.getState().result.audio;
+    }
+
+    private void exportTtsIfReady() {
+        if (pendingTtsExport == null || tts == null) return;
+        Uri destination = pendingTtsExport;
+        pendingTtsExport = null;
+        PcmAudio audio = exportAudio == null ? generatedAudio() : exportAudio;
+        exportAudio = null;
+        if (audio == null) { ttsStatus.setText(R.string.tts_save_failed); return; }
+        exportWorker.execute(() -> {
+            int message;
+            try (java.io.OutputStream stream = getContentResolver().openOutputStream(destination, "w")) {
+                if (stream == null) throw new java.io.IOException("No document output stream.");
+                stream.write(audio.wav());
+                message = R.string.tts_saved;
+            } catch (Exception error) { message = R.string.tts_save_failed; }
+            int result = message;
+            runOnUiThread(() -> { if (!isDestroyed()) ttsStatus.setText(result); });
+        });
+    }
+
     private void withNotificationPermission(Runnable action) {
         if (permissionInFlight) return;
         pendingAction = action;
@@ -436,12 +572,14 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     @Override public void onStateChanged(EngineManager.State state) {
         boolean busy = service != null && service.isBusy();
         SpeechManager.State audio = speech == null ? null : speech.getState();
+        TtsManager.State synthesis = tts == null ? null : tts.getState();
         run.setEnabled(!busy);
         load.setEnabled(!busy);
         boolean serving = service != null && service.isServerRunning();
-        boolean stopping = state.phase == EngineManager.Phase.STOPPING || audio != null && audio.phase == SpeechManager.Phase.STOPPING;
-        unload.setEnabled((serving || state.loaded || busy || audio != null && audio.loaded) && !stopping);
-        cancel.setEnabled(state.canCancel || audio != null && audio.canCancel);
+        boolean stopping = state.phase == EngineManager.Phase.STOPPING || audio != null && audio.phase == SpeechManager.Phase.STOPPING
+                || synthesis != null && synthesis.phase == TtsManager.Phase.STOPPING;
+        unload.setEnabled((serving || state.loaded || busy || audio != null && audio.loaded || synthesis != null && synthesis.loaded) && !stopping);
+        cancel.setEnabled(state.canCancel || audio != null && audio.canCancel || synthesis != null && synthesis.canCancel);
         choose.setEnabled(!busy && !serving);
         modelSource.setEnabled(!busy && !serving);
         prompt.setEnabled(!busy);
@@ -461,6 +599,18 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         transcribe.setEnabled(!busy && hasSpeechModel && selectedAudio != null);
         speechLanguage.setEnabled(!busy);
         speechModelStatus.setText(hasSpeechModel ? R.string.speech_model_ready : R.string.speech_model_missing);
+        boolean hasTtsModel = service != null && service.hasTtsModel();
+        importTts.setEnabled(!busy && !serving);
+        loadTts.setEnabled(!busy && hasTtsModel);
+        unloadTts.setEnabled(!busy && synthesis != null && synthesis.loaded);
+        synthesize.setEnabled(!busy && hasTtsModel);
+        ttsText.setEnabled(!busy);
+        ttsVoice.setEnabled(!busy);
+        ttsLanguage.setEnabled(!busy);
+        ttsSpeed.setEnabled(!busy);
+        playTts.setEnabled(!busy && generatedAudio() != null);
+        saveTts.setEnabled(!busy && generatedAudio() != null);
+        ttsModelStatus.setText(hasTtsModel ? R.string.tts_model_ready : R.string.tts_model_missing);
         backend.setText(state.backend);
         status.setText(state.status);
         output.setText(state.result == null ? "" : state.result.text);
@@ -475,6 +625,11 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
 
     @Override public void onServerChanged(boolean running, String message) {
         serverStatus.setText(message);
+        if (manager != null) onStateChanged(manager.getState());
+    }
+    @Override public void onTtsChanged(TtsManager.State state) {
+        ttsStatus.setText(state.status);
+        if (state.result == null || state.result.audio == null) playback.stop();
         if (manager != null) onStateChanged(manager.getState());
     }
 }

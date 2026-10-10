@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import dev.inferdroid.server.OpenAiServerTests;
 import dev.inferdroid.server.SpeechTests;
+import dev.inferdroid.server.TtsTests;
 import java.nio.charset.StandardCharsets;
 
 /** Headless platform-SDK tests: no test libraries, model, Activity, or JNI required. */
@@ -33,7 +34,8 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 "apiAuthenticationAndValidation", "apiChatHistoryAndErrors", "apiLiveStreaming",
                 "apiBusyDisconnectAndRecovery", "apiCorsAndPortConflict", "apiStopAndRestart",
                 "audioDecodeBoundsAndFormats", "audioMultipartValidation", "audioResponsesAndModelDiscovery",
-                "audioChatContention", "audioDisconnectCancelAndRecovery", "audioStopDuringLoadAndImport"};
+                "audioChatContention", "audioDisconnectCancelAndRecovery", "audioStopDuringLoadAndImport",
+                "ttsValidationAndFormats", "ttsBusyAndReuse", "ttsDisconnectAndRecovery", "ttsStopDuringLoadAndImport"};
         for (int index = 0; index < names.length; index++) {
             Bundle status = new Bundle();
             status.putString("class", getClass().getName());
@@ -47,7 +49,8 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 else if (index == 2) stopDuringLoad();
                 else if (index == 3) splitUtf8Streaming();
                 else if (index < 10) new OpenAiServerTests(this).run(names[index]);
-                else new SpeechTests(this).run(names[index]);
+                else if (index < 16) new SpeechTests(this).run(names[index]);
+                else new TtsTests(this).run(names[index]);
                 sendStatus(0, status);
             } catch (Throwable error) {
                 failures++;

@@ -18,7 +18,7 @@
         <service android:name=".InferenceService" android:exported="false"
             android:foregroundServiceType="specialUse" android:stopWithTask="false">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="User-started local chat and file speech recognition with a localhost API. Keeps on-device Gemma and Whisper models and the authenticated loopback listener available between serialized requests, with visible backend status and explicit stop controls." />
+                android:value="User-started local chat, file speech recognition, and speech synthesis with a localhost API. Keeps on-device Gemma, Whisper, and Supertonic models and the authenticated loopback listener available between serialized requests, with visible backend status and explicit stop controls." />
         </service>
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>

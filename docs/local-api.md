@@ -1,17 +1,19 @@
-# Local OpenAI API — milestones 3 and 4
+# Local OpenAI API — milestones 3–5
 
 `InferenceService` owns an optional `OpenAiServer` listening **only on
 127.0.0.1**, initially port **8080**. The server has no LAN bind setting and
 makes no outbound requests. Java's `ChatGateway` routes protocol-neutral
 `GenerationRequest` objects to the same `EngineManager` used by the UI.
 `TranscriptionGateway` independently routes audio requests to `SpeechManager`.
-Both lifecycles share `WorkGate`. No OpenAI account, cloud service, or API
+`SynthesisGateway` routes text-to-speech requests to `TtsManager`.
+All three lifecycles share `WorkGate`. No OpenAI account, cloud service, or API
 subscription is involved.
 
 ## Start and configure
 
 1. Select the existing Tensor G5 model with **Choose model** for chat, or
-   [import the separate Whisper bundle](speech-recognition.md) for speech.
+   [import the separate Whisper bundle](speech-recognition.md) for ASR or
+   [Supertonic bundle](tts.md) for TTS.
 2. Scroll to **Local OpenAI API**. Keep **Require local API key** enabled;
    **Copy key** copies the generated key for use in your client. The app masks
    the key and marks the clipboard entry sensitive on Android 13+.
@@ -19,8 +21,8 @@ subscription is involved.
    **Allow browser / WebView clients (CORS)** if your client needs it.
 4. Press **Start server**. The displayed URL is the client's base URL.
    Starting the listener does not load models; the first request loads its
-   engine automatically. **Load model** / **Load speech** can initialize them
-   beforehand. A speech-only listener does not need a Gemma selection.
+   engine automatically. **Load model** / **Load speech** / **Load TTS** can initialize them
+   beforehand. An ASR/TTS-only listener does not need a Gemma selection.
 5. The service and notification remain active while the server is listening,
    even before a model is loaded or after an initialization failure. Leaving
    the Activity does not stop the listener.
@@ -30,7 +32,8 @@ subscription is involved.
 | OpenAI base URL | `http://127.0.0.1:8080/v1` |
 | API key | The key copied from InferDroid |
 | Chat model ID | `gemma-4-E2B-it_Google_Tensor_G5` |
-| Speech model ID | `sherpa-onnx-whisper-tiny` |
+| ASR model ID | `sherpa-onnx-whisper-tiny` |
+| TTS model ID | `sherpa-onnx-supertonic-3-int8` |
 
 Port, key, authentication choice, and CORS choice are saved privately. Stop
 the listener before changing them or choosing a different model. **Generate
@@ -41,7 +44,7 @@ localhost is accessible to other apps in the same Android profile.
 **Stop server** closes the listener and its client connections, cancels its
 active request, and leaves loaded models available to the UI. **Unload /
 Stop**, including the notification action, closes the listener, drains native
-work, unloads both engines, and stops the service. Initialization remains
+work, unloads all three engines, and stops the service. Initialization remains
 non-interruptible; cancellation during loading skips generation after loading
 returns. A process kill does not automatically restart the server or reload
 the model. Start it again from the app.
@@ -73,14 +76,15 @@ limit DNS rebinding. CORS does not replace authentication.
 The wire format follows the official
 [Chat Completions schema](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
 and [streamed chunks](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events).
-Chat implements the following text subset; the independent audio contract
-and multipart examples are in [speech-recognition.md](speech-recognition.md).
+Chat implements the following text subset; independent audio contracts and
+examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.md).
 
 | Endpoint | Behavior |
 | --- | --- |
-| `GET /v1/models` | OpenAI-style `list` with the configured Gemma and imported Whisper model, including while unloaded; unconfigured engines are omitted |
+| `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic models, including while unloaded; unconfigured engines are omitted |
 | `POST /v1/chat/completions` | One completion, or incremental SSE when `stream: true` |
 | `POST /v1/audio/transcriptions` | Offline CPU file transcription; multipart, JSON/text/verbose JSON response |
+| `POST /v1/audio/speech` | Offline CPU TTS; JSON request, buffered 24 kHz mono PCM16 WAV/raw PCM response |
 | `OPTIONS` on any endpoint | CORS preflight when CORS is enabled |
 
 Requests must specify the exact model ID and 1–128 messages ending in a user
@@ -129,8 +133,8 @@ as a JSON error in a data event followed by `[DONE]`; it does not claim success.
 
 ## Admission, cancellation, and transport limits
 
-UI and API chat/speech work share one admission gate. Loading, importing,
-generation, transcription, or stopping rejects additional work with **429**, code `engine_busy`, and
+UI and API chat/ASR/TTS work share one admission gate. Loading, importing,
+generation, transcription, synthesis, or stopping rejects additional work with **429**, code `engine_busy`, and
 `Retry-After: 1`. There is no inference queue. Model listing and preflight do
 not require an idle engine. A socket disconnect cancels only that socket's
 request, including during automatic loading; stale cancellation cannot affect
@@ -138,6 +142,8 @@ a later client or UI request. The next request is admitted after native work
 has drained. Cancellation never frees live native callbacks.
 Speech cancellation is cooperative between decoding operations/chunks; the
 current sherpa native decode must return before another request can start.
+TTS similarly checks cancellation between bounded text chunks and waits for
+the synchronous native synthesis to drain before releasing its slot.
 
 The transport uses HTTP/1.1 with one request per connection and
 `Connection: close`. JSON POST bodies require `Content-Length` and
@@ -145,7 +151,7 @@ The transport uses HTTP/1.1 with one request per connection and
 clients should stop at `[DONE]`. Incoming chunked bodies, Expect handshakes,
 and HTTP pipelining are unsupported.
 
-Limits: 256 KiB chat JSON bodies, audio uploads up to 25 MiB plus 16 KiB
+Limits: 256 KiB chat/TTS JSON bodies, audio uploads up to 25 MiB plus 16 KiB
 multipart metadata, 16 KiB total HTTP headers, 8 KiB header lines,
 64 headers, 32 JSON nesting levels, four HTTP workers plus eight pending
 connections, and bounded streaming buffers. Header/body intake has a
@@ -197,7 +203,7 @@ verification and is not an app LAN-serving feature. The phone's other apps
 connect directly to port 8080 without ADB.
 
 See [the verification record](milestone-verification.md) for physical NPU
-results and the README for the sixteen reproducible lifecycle/API/audio tests.
+results and the README for the twenty reproducible lifecycle/API/audio tests.
 Those instrumentation tests use test-only fake engines to control timing;
-actual CPU ASR and NPU inference were verified separately through the service's
-HTTP listener with public test recordings and the original chat prompt.
+actual CPU ASR/TTS and NPU inference were verified separately through the service's
+HTTP listener with public test recordings, generated speech, and the original chat prompt.

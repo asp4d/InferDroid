@@ -384,4 +384,144 @@ Temporary host evidence: `/tmp/inferdroid-m4-final-build.log`,
 neither printed nor written to tracked artifacts. Third-party app compatibility
 still needs per-client testing.
 
-Milestones 1, 2, 3, and 4 are complete. Milestone 5 (local TTS) has not started.
+## Milestone 5 — passed, 2026-10-11
+
+Checks ran on the same Pixel 10 / GrapheneOS over 2026-10-10–11. The
+Gemma/LiteRT/G5 pins remain unchanged. Local TTS uses **sherpa-onnx 1.13.8**,
+**ONNX Runtime 1.28.2**, and the official **Supertonic 3 int8 2026-05-11**
+bundle on CPU with two threads. TTS has its own manager, JNI C API, private
+model directory, and four retained ONNX sessions; it shares only service
+ownership and the work gate with chat/ASR. It extends the existing speech JNI
+library without adding another inference runtime.
+
+The seven required model/data files total **145,295,768 bytes**. The bundle
+was prepared on the host, copied to `/sdcard/AIModels/`, and imported through
+the real system folder picker. The importer verified all seven checksums and
+copied only those files into app-private storage. Archive/model hashes and
+separate OpenRAIL-M/MIT licensing are in [tts.md](tts.md).
+The runtime selects only Supertonic TTS and excludes eSpeak/piper.
+
+### Real generated audio
+
+The UI generated its Italian default sentence with F1 in **2,842 ms**, including
+initialization. **Save WAV** used the real system document picker; the exported
+file was pulled and parsed: **317,076 bytes**, **6.605 seconds**, mono 24 kHz
+PCM16, with nonzero samples. The corrected **Play** control created an active
+Android AudioTrack with `USAGE_MEDIA`, `CONTENT_TYPE_SPEECH`, and **24,000 Hz**.
+The initial preview check caught the static-track initialization order, which
+was corrected before final verification. Leaving the Activity stops preview.
+
+The bundle's `tts.json` specifies native **44.1 kHz**, despite an upstream
+example listing 24 kHz. JNI checks the actual model rate and resamples both
+WAV and PCM to **24 kHz mono signed PCM16 little-endian**.
+
+Representative final-APK API results:
+
+| Request | Output | Audio duration | HTTP wall time |
+| --- | --- | --- | --- |
+| English F1, speed 1.0, first TTS request including load | WAV, 365,816 bytes | 7.620 s | 3.309 s |
+| Same English text/voice, speed 1.5 | WAV, 243,892 bytes | 5.080 s | 1.670 s |
+| Italian M1, speed 1.0 | WAV, 483,264 bytes | 10.067 s | 3.003 s |
+| `tts-1` / `alloy` aliases | Raw PCM, 102,616 bytes | 2.138 s | 0.845 s |
+
+Every successful response had exact Content-Length and the expected
+`audio/wav` or `application/octet-stream` MIME type. WAV headers decoded to
+24 kHz, mono, 16-bit samples; generated clips had nonzero amplitude.
+`GET /v1/models` listed all three configured/imported models, including before
+loading. Requested MP3 output returned **400 `invalid_parameter`**.
+
+English generated speech transcribed back through the real Whisper endpoint
+in **1.403 s**, reproducing the supplied words. The Italian clip transcribed
+in **1.036 s** with errors. This establishes functional Italian generation and
+ASR processing, without separating TTS pronunciation from Whisper tiny
+recognition or claiming Italian accuracy. These are functional measurements,
+not a controlled quality/performance study. All spoken texts were written for
+the test; no user recordings were accessed.
+
+### Bounds, cancellation, and runtime safety
+
+- A real **67.306-second**, multi-chunk WAV completed in **19.801 s** during
+  verification. Concurrent TTS, chat, and ASR requests each returned **429
+  `engine_busy`** while synthesis owned the slot. A subsequent short request
+  succeeded without reinitializing Supertonic.
+- Disconnecting an active real synthesis discarded its audio and retained
+  admission ownership until the synchronous call drained. Recovery took
+  **6.477 s** on the final runtime, including a successful retry; 22 intervening retries received
+  429. No cancelled model sessions were freed while native work was live.
+- A long request at speed **0.25** exposed the export's fixed positional table:
+  the predicted latent length exceeded 1000 and raised an ONNX shape exception.
+  The corrected build checks predicted duration before vector estimation,
+  retries a smaller text prefix, and catches C++ exceptions inside the sherpa
+  shared library. This prevents exceptions crossing separate static C++
+  runtimes. The exact stress request then returned **413 `request_too_large`**
+  at the **120-second total-audio limit**, in **41.622 s**, without a crash.
+  A subsequent normal request succeeded in **1.466 s** with the same model.
+- A short utterance at speed 0.25 generated **7.944 s** of audio in **2.681 s**.
+  Speed 2.0 also produced nonzero audio. Native 4.0 produced a silent short
+  utterance, so the app deliberately supports **0.25–2.0** and rejects faster
+  speeds before inference. Native output consisting entirely of silence is
+  rejected as an engine failure rather than returned as successful speech.
+- TTS text is capped at 4096 UTF-16 code units; calls use at-most-240-unit
+  chunks with cancellation checks and smaller retries when required. Invalid
+  Unicode, types, duplicate JSON fields, unsupported options, and missing
+  models are covered by the socket-based tests. No text/audio/key is logged
+  by the integration; native TTS error text is redacted.
+
+### Regression and lifecycle
+
+The final APK also passed the existing public Whisper WAV cases and real
+Gemma introduction/live SSE. Both CPU audio engines remained resident during
+NPU inference. Logs again showed the Google Tensor dispatch/delegate path and
+SouthBound symbols resolved by `libedgetpu_litert.so`. A TTS request during
+live Gemma generation returned 429. There was no NPU-to-CPU fallback.
+The final introduction took **6.223 s** including load; warm SSE delivered
+**43 content chunks**, first content at **0.420 s**, total **2.908 s**, and
+the same **15 prompt / 44 completion tokens**. A following TTS request
+succeeded without reloading either CPU engine.
+
+Real TTS also succeeded while the Activity was backgrounded; Android reported
+the service foreground with `hasBound=false`. TTS returned 7.620 seconds of
+WAV audio in **2.745 s** while backgrounded. Speed 2.0 generated a 1.014-second
+short clip, while speed 4.0 returned 400. **Stop server** retained loaded
+engines. Full **Unload / Stop** drains all three workers, logs ASR/TTS/NPU
+unload, removes foreground status, and releases model mappings/descriptors.
+Model mappings went from **10 to 0**, and model descriptors from **8 to 0**.
+The app was left visible with the listener stopped, all engines unloaded,
+port 8080, authentication enabled, and CORS off. Imported audio bundles and
+the saved Gemma selection remain available for the next run.
+
+### Final build and tests
+
+Android Studio and command-line assembly/lint passed with **JDK 21.0.11**,
+Gradle **9.8.1**, AGP **9.4.1**, compile SDK **37**, and pinned NDK
+**r30-beta1**. Lint: **0 errors, 12 existing warnings**. The runtime preparation
+script was also checked for idempotent source output. Both APKs were installed.
+
+```text
+Lifecycle/API tests: 20 passed, 0 failed.
+```
+
+The sixteen previous cases passed again. Four TTS cases cover strict schema,
+authentication, model discovery/availability, voice/language/Unicode/speed
+translation, real Java decoding of generated WAV and raw PCM bytes, output-limit
+errors/reuse, shared work admission, disconnect/stale cancellation ownership,
+and stop during load/import. They use controlled test-only engines and real
+Android threads/sockets/decoder. The actual sherpa CPU and G5 evidence comes
+from the separate native requests above.
+
+Final debug APK: **44,131,533 bytes**, seven arm64 libraries, both Supertonic
+code/model notices, and **no bundled model weights**. SHA-256:
+
+```text
+7f15c9f9b2a8bcf626024f89c3c59587573c24c56204f8f5967cd6f88396b312
+```
+
+Temporary host evidence: `/tmp/inferdroid-m5-final-build.log`,
+`/tmp/inferdroid-m5-final-tests.log`, `/tmp/inferdroid-m5-runtime-build.log`,
+`/tmp/inferdroid-m5-api-formats.log`, `/tmp/inferdroid-m5-limit.log`,
+`/tmp/inferdroid-m5-regression.log`, and `/tmp/inferdroid-m5-real.log`.
+Local keys were neither printed nor written to tracked artifacts. ADB forwarding
+and log capture were removed/stopped after verification. Third-party client
+compatibility and the other 29 TTS languages still need individual testing.
+
+Milestones 1–5 are complete. Milestone 6 (Gemma image understanding) has not started.

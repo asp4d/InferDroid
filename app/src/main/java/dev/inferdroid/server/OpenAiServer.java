@@ -4,6 +4,8 @@ import dev.inferdroid.engine.GenerationListener;
 import dev.inferdroid.engine.GenerationResult;
 import dev.inferdroid.speech.TranscriptionListener;
 import dev.inferdroid.speech.TranscriptionResult;
+import dev.inferdroid.tts.SynthesisListener;
+import dev.inferdroid.tts.SynthesisResult;
 import dev.inferdroid.server.OpenAiProtocol.ApiError;
 import dev.inferdroid.server.OpenAiProtocol.ChatRequest;
 import java.io.BufferedInputStream;
@@ -49,6 +51,7 @@ public final class OpenAiServer implements AutoCloseable {
     private final boolean verbose;
     private final ChatGateway gateway;
     private final TranscriptionGateway speech;
+    private final SynthesisGateway tts;
     private final Runnable onUnexpectedStop;
     private final Set<Socket> clients = ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor workers = new ThreadPoolExecutor(4, 4, 0, TimeUnit.SECONDS,
@@ -65,11 +68,16 @@ public final class OpenAiServer implements AutoCloseable {
 
     public OpenAiServer(ServerConfig config, String modelSource, boolean verbose, ChatGateway gateway,
                         TranscriptionGateway speech, Runnable onUnexpectedStop) {
+        this(config, modelSource, verbose, gateway, speech, null, onUnexpectedStop);
+    }
+    public OpenAiServer(ServerConfig config, String modelSource, boolean verbose, ChatGateway gateway,
+                        TranscriptionGateway speech, SynthesisGateway tts, Runnable onUnexpectedStop) {
         this.config = config;
         this.modelSource = modelSource;
         this.verbose = verbose;
         this.gateway = gateway;
         this.speech = speech;
+        this.tts = tts;
         this.onUnexpectedStop = onUnexpectedStop;
         deadlines.setRemoveOnCancelPolicy(true);
     }
@@ -136,7 +144,7 @@ public final class OpenAiServer implements AutoCloseable {
                 throw new ApiError(403, "Use a localhost URL to reach InferDroid.", "permission_error", "invalid_host", null);
             }
             String path = request.target.split("\\?", 2)[0];
-            if (!Set.of("/v1/models", "/v1/chat/completions", "/v1/audio/transcriptions").contains(path)) {
+            if (!Set.of("/v1/models", "/v1/chat/completions", "/v1/audio/transcriptions", "/v1/audio/speech").contains(path)) {
                 throw new ApiError(404, "Unknown API endpoint.", "invalid_request_error", "not_found", null);
             }
             if (request.headers.containsKey("origin") && !config.cors) {
@@ -157,7 +165,7 @@ public final class OpenAiServer implements AutoCloseable {
             }
             if (path.equals("/v1/models")) {
                 if (!request.method.equals("GET")) throw methodError();
-                json(output, 200, OpenAiProtocol.models(!modelSource.isEmpty(), speech != null && speech.isAvailable()));
+                json(output, 200, OpenAiProtocol.models(!modelSource.isEmpty(), speech != null && speech.isAvailable(), tts != null && tts.isAvailable()));
                 return;
             }
             if (!request.method.equals("POST")) throw methodError();
@@ -188,6 +196,10 @@ public final class OpenAiServer implements AutoCloseable {
                         .onUnmappableCharacter(CodingErrorAction.REPORT).decode(ByteBuffer.wrap(bytes)).toString();
             } catch (CharacterCodingException error) {
                 throw OpenAiProtocol.invalid("JSON must be valid UTF-8.", null);
+            }
+            if (path.equals("/v1/audio/speech")) {
+                synthesize(socket, input, output, body, headerTimeout);
+                return;
             }
             ChatRequest chat = OpenAiProtocol.parse(body, modelSource, verbose);
             if (modelSource.isEmpty()) throw new ApiError(503, "Choose the Gemma chat model in InferDroid first.",
@@ -297,7 +309,7 @@ public final class OpenAiServer implements AutoCloseable {
         boolean admitted = false;
         try {
             admitted = speech.transcribe(audio.transcription, session);
-            if (!admitted) throw new ApiError(429, "Chat or speech inference is busy. Retry when idle.",
+            if (!admitted) throw new ApiError(429, "Chat, ASR, or TTS inference is busy. Retry when idle.",
                     "rate_limit_error", "engine_busy", null);
             socket.setSoTimeout(100);
             while (session.result == null) {
@@ -324,6 +336,40 @@ public final class OpenAiServer implements AutoCloseable {
         @Override public void onComplete(TranscriptionResult result) { this.result = result; }
     }
 
+    private void synthesize(Socket socket, InputStream input, OutputStream output, String body,
+                            ScheduledFuture<?> intakeDeadline) throws Exception {
+        TtsProtocol.Request audio = TtsProtocol.parse(body);
+        if (tts == null || !tts.isAvailable()) throw TtsProtocol.unavailable();
+        intakeDeadline.cancel(false);
+        ScheduledFuture<?> deadline = deadlines.schedule(() -> closeSocket(socket), REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        SynthesisSession session = new SynthesisSession();
+        boolean admitted = false;
+        try {
+            admitted = tts.synthesize(audio.synthesis, session);
+            if (!admitted) throw new ApiError(429, "Chat, ASR, or TTS inference is busy. Retry when idle.", "rate_limit_error", "engine_busy", null);
+            socket.setSoTimeout(100);
+            while (session.result == null) {
+                try {
+                    if (input.read() < 0) throw new EOFException("Client disconnected.");
+                    throw new IOException("HTTP pipelining is unsupported.");
+                } catch (SocketTimeoutException ignored) { }
+                if (Thread.currentThread().isInterrupted() || socket.isClosed()) throw new IOException("Server stopped.");
+            }
+            if (!session.result.success) throw TtsProtocol.failure(session.result);
+            if (session.result.audio == null) throw new IOException("No synthesized audio.");
+            byte[] bytes = audio.format.equals("wav") ? session.result.audio.wav() : session.result.audio.pcm;
+            headers(output, 200, audio.format.equals("wav") ? "audio/wav" : "application/octet-stream", bytes.length);
+            output.write(bytes); output.flush();
+        } finally {
+            deadline.cancel(false);
+            if (admitted && session.result == null) tts.cancel(session);
+        }
+    }
+    private static final class SynthesisSession implements SynthesisListener {
+        volatile SynthesisResult result;
+        @Override public void onComplete(SynthesisResult result) { this.result = result; }
+    }
+
     private void authenticate(HttpRequest request) throws ApiError {
         if (!config.requireKey) return;
         String authorization = request.headers.getOrDefault("authorization", "");
@@ -335,7 +381,7 @@ public final class OpenAiServer implements AutoCloseable {
     }
 
     private static ApiError methodError() {
-        return new ApiError(405, "Use GET /v1/models, POST /v1/chat/completions, or POST /v1/audio/transcriptions.", "invalid_request_error", "method_not_allowed", null);
+        return new ApiError(405, "Use GET /v1/models or POST /v1/chat/completions, /v1/audio/transcriptions, /v1/audio/speech.", "invalid_request_error", "method_not_allowed", null);
     }
 
     private static final class HttpRequest {
