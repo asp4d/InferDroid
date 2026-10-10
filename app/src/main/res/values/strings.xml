@@ -32,6 +32,8 @@
     <string name="invalid_port">Enter a port between 1 and 65535.</string>
     <string name="require_api_key">Require local API key</string>
     <string name="api_key">Local API key</string>
+    <string name="show_api_key">Show API key</string>
+    <string name="hide_api_key">Hide API key</string>
     <string name="copy_key">Copy key</string>
     <string name="regenerate_key">Generate new key</string>
     <string name="cors">Allow browser / WebView clients (CORS)</string>

@@ -275,7 +275,9 @@ notification, and the app shows that actual permission state.
 Select the chat model or import the speech model, scroll to **Local OpenAI API**,
 and press **Start server**.
 Keep **Require local API key** enabled and use **Copy key** to configure a
-trusted client. The model loads on the first request; **Load model** can
+trusted client. The eye button beside the key shows or hides it; the key starts
+hidden and is hidden again when you leave the screen.
+The model loads on the first request; **Load model** can
 initialize it beforehand. The server stays available while the Activity is
 backgrounded.
 

@@ -14,11 +14,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.DocumentsContract;
+import android.text.method.PasswordTransformationMethod;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import dev.inferdroid.engine.EngineManager;
@@ -64,6 +66,8 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     private SharedPreferences serverPreferences;
     private EditText serverPort;
     private EditText apiKey;
+    private ImageButton apiKeyVisibility;
+    private boolean apiKeyVisible;
     private CheckBox requireKey;
     private CheckBox cors;
     private Button startServer;
@@ -161,6 +165,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         serverPreferences = getSharedPreferences("server", MODE_PRIVATE);
         serverPort = findViewById(R.id.server_port);
         apiKey = findViewById(R.id.api_key);
+        apiKeyVisibility = findViewById(R.id.toggle_api_key_visibility);
         requireKey = findViewById(R.id.require_api_key);
         cors = findViewById(R.id.cors);
         startServer = findViewById(R.id.start_server);
@@ -172,6 +177,8 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         }
         serverPort.setText(String.format(java.util.Locale.ROOT, "%d", serverPreferences.getInt("port", ServerConfig.DEFAULT_PORT)));
         apiKey.setText(serverPreferences.getString("api_key", ""));
+        setApiKeyVisible(false);
+        apiKeyVisibility.setOnClickListener(view -> setApiKeyVisible(!apiKeyVisible));
         requireKey.setChecked(serverPreferences.getBoolean("require_key", true));
         cors.setChecked(serverPreferences.getBoolean("cors", false));
         startServer.setOnClickListener(view -> startLocalServer());
@@ -218,6 +225,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     }
 
     @Override protected void onStop() {
+        setApiKeyVisible(false);
         started = false;
         if (manager != null) manager.detach(this);
         if (speech != null) speech.detach(this);
@@ -335,6 +343,18 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         withNotificationPermission(() -> {
             if (!service.generate(request)) status.setText(R.string.engine_busy);
         });
+    }
+
+    private void setApiKeyVisible(boolean visible) {
+        int selectionStart = apiKey.getSelectionStart();
+        int selectionEnd = apiKey.getSelectionEnd();
+        apiKeyVisible = visible;
+        apiKey.setTransformationMethod(visible ? null : PasswordTransformationMethod.getInstance());
+        if (selectionStart >= 0 && selectionEnd >= 0) apiKey.setSelection(selectionStart, selectionEnd);
+        apiKeyVisibility.setImageResource(visible ? R.drawable.ic_visibility_off : R.drawable.ic_visibility);
+        String action = getString(visible ? R.string.hide_api_key : R.string.show_api_key);
+        apiKeyVisibility.setContentDescription(action);
+        apiKeyVisibility.setTooltipText(action);
     }
 
     private void startLocalServer() {

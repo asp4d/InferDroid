@@ -32,6 +32,8 @@
     <string name="invalid_port">Inserisci una porta compresa tra 1 e 65535.</string>
     <string name="require_api_key">Richiedi chiave API locale</string>
     <string name="api_key">Chiave API locale</string>
+    <string name="show_api_key">Mostra chiave API</string>
+    <string name="hide_api_key">Nascondi chiave API</string>
     <string name="copy_key">Copia chiave</string>
     <string name="regenerate_key">Genera nuova chiave</string>
     <string name="cors">Consenti client browser / WebView (CORS)</string>
