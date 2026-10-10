@@ -8,10 +8,31 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:gravity="center_vertical" android:layout_marginBottom="8dp"
-            android:drawableStart="@drawable/inferdroid_logo_header" android:drawablePadding="12dp"
-            android:text="@string/app_name" android:textSize="28sp" android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:drawableStart="@drawable/inferdroid_logo_header"
+                android:drawablePadding="12dp"
+                android:text="@string/app_name"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+            <ImageButton
+                android:id="@+id/btn_ui_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_settings"
+                android:contentDescription="@string/ui_settings_title" />
+        </LinearLayout>
         <TextView android:id="@+id/backend_status" android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/backend_label" android:textSize="16sp" />
         <TextView android:id="@+id/notification_status" android:layout_width="match_parent"

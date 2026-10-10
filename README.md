@@ -8,7 +8,7 @@ A minimal **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
 E2B NPU path. A Java foreground service owns the native engine and keeps the
 selected model loaded between requests and serves an authenticated
 **OpenAI-compatible localhost API**, including live SSE streaming. The UI
-shows generated text, backend status, native diagnostics, and server controls.
+shows generated text, backend status, native diagnostics, server controls, and customizable themes and languages.
 Inference runs on a worker thread. ASR/TTS, vision, image generation, and
 network tools are later work.
 
@@ -280,6 +280,20 @@ See [local-api.md](docs/local-api.md) for supported text messages and sampling
 parameters, error behavior, limits, CORS, and complete `curl` examples through
 `adb forward tcp:18080 tcp:8080`. Audio, image input, tools, structured output,
 and `/v1/completions` are outside this milestone.
+
+## UI Customization, Themes & Languages
+
+InferDroid includes a dedicated **UI Settings** screen (accessible via the gear icon in the top header) for customizing the visual theme and language preferences:
+
+* **Themes**:
+  * **Light**: Classic clean light interface.
+  * **OLED Dark**: Pure pitch-black (`#000000`) dark theme designed to save energy on OLED displays.
+  * **Auto (System Light/Dark)**: Automatically switches between Light and OLED Dark based on system dark mode settings.
+  * **Gruvbox Light**: Retro warm light palette with soft cream background (`#fbf1c7`) and dark charcoal text (`#3c3836`).
+  * **Gruvbox Dark**: Retro warm dark palette with dark background (`#282828`) and soft cream text (`#ebdbb2`).
+  * **Auto Gruvbox**: Automatically switches between Gruvbox Light and Gruvbox Dark based on system dark mode settings.
+* **Language Selection**:
+  * Per-app language management supporting **System Default**, **English**, and **Italiano** (Italian), with extensible architecture for adding additional languages in the future.
 
 ## Capture Tensor G5 evidence
 

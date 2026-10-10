@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_content"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Top Header Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp">
+
+            <ImageButton
+                android:id="@+id/btn_back"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="12dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_arrow_back"
+                android:contentDescription="@string/back" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/ui_settings_title"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <!-- Section 1: App Theme -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/theme_section_title"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/theme_section_help"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/theme_radio_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/radio_theme_light"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme_light"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_theme_oled_dark"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme_oled_dark"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_theme_auto"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme_auto"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_theme_gruvbox_light"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme_gruvbox_light"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_theme_gruvbox_dark"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme_gruvbox_dark"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_theme_auto_gruvbox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/theme_auto_gruvbox"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+        </RadioGroup>
+
+        <!-- Section 2: Language -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/language_section_title"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/language_section_help"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginBottom="8dp" />
+
+        <RadioGroup
+            android:id="@+id/language_radio_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/radio_lang_system"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/language_system"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_lang_en"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/language_en"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+
+            <RadioButton
+                android:id="@+id/radio_lang_it"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/language_it"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp" />
+        </RadioGroup>
+
+    </LinearLayout>
+</ScrollView>

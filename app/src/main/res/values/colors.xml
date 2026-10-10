@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light Theme Colors -->
+    <color name="light_bg">#FFFFFF</color>
+    <color name="light_surface">#F4F5F7</color>
+    <color name="light_text_primary">#1C1B1F</color>
+    <color name="light_text_secondary">#5F6368</color>
+    <color name="light_accent">#216548</color>
+
+    <!-- OLED Black Dark Theme Colors (Energy Saving Pitch Black) -->
+    <color name="oled_bg">#000000</color>
+    <color name="oled_surface">#121212</color>
+    <color name="oled_text_primary">#F5F5F5</color>
+    <color name="oled_text_secondary">#9E9E9E</color>
+    <color name="oled_accent">#4CAF50</color>
+
+    <!-- Gruvbox Light Theme Colors -->
+    <color name="gruvbox_light_bg">#fbf1c7</color>
+    <color name="gruvbox_light_surface">#f2e5bc</color>
+    <color name="gruvbox_light_text_primary">#3c3836</color>
+    <color name="gruvbox_light_text_secondary">#7c6f64</color>
+    <color name="gruvbox_light_accent">#d65d0e</color>
+
+    <!-- Gruvbox Dark Theme Colors -->
+    <color name="gruvbox_dark_bg">#282828</color>
+    <color name="gruvbox_dark_surface">#3c3836</color>
+    <color name="gruvbox_dark_text_primary">#ebdbb2</color>
+    <color name="gruvbox_dark_text_secondary">#a89984</color>
+    <color name="gruvbox_dark_accent">#fabd2f</color>
+</resources>

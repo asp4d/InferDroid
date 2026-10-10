@@ -1,8 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#216548</item>
+    <!-- Base Light Theme -->
+    <style name="Theme.InferDroid.Base.Light" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <!-- Base Dark Theme -->
+    <style name="Theme.InferDroid.Base.Dark" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+    </style>
+
+    <!-- 1. Light Theme -->
+    <style name="Theme.InferDroid.Light" parent="Theme.InferDroid.Base.Light">
+        <item name="android:windowBackground">@color/light_bg</item>
+        <item name="android:colorBackground">@color/light_bg</item>
+        <item name="colorSurface">@color/light_surface</item>
+        <item name="android:textColor">@color/light_text_primary</item>
+        <item name="android:textColorPrimary">@color/light_text_primary</item>
+        <item name="android:textColorSecondary">@color/light_text_secondary</item>
+        <item name="android:textColorHint">@color/light_text_secondary</item>
+        <item name="android:editTextColor">@color/light_text_primary</item>
+        <item name="android:textColorPrimaryInverse">@color/oled_text_primary</item>
+        <item name="android:colorAccent">@color/light_accent</item>
+        <item name="colorPrimary">@color/light_accent</item>
+        <item name="colorSecondary">@color/light_accent</item>
+        <item name="colorControlNormal">@color/light_text_secondary</item>
+        <item name="colorControlActivated">@color/light_accent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">@color/light_bg</item>
+        <item name="android:navigationBarColor">@color/light_bg</item>
     </style>
+
+    <!-- 2. OLED Black Dark Theme (Energy Saving) -->
+    <style name="Theme.InferDroid.OledDark" parent="Theme.InferDroid.Base.Dark">
+        <item name="android:windowBackground">@color/oled_bg</item>
+        <item name="android:colorBackground">@color/oled_bg</item>
+        <item name="colorSurface">@color/oled_surface</item>
+        <item name="android:textColor">@color/oled_text_primary</item>
+        <item name="android:textColorPrimary">@color/oled_text_primary</item>
+        <item name="android:textColorSecondary">@color/oled_text_secondary</item>
+        <item name="android:textColorHint">@color/oled_text_secondary</item>
+        <item name="android:editTextColor">@color/oled_text_primary</item>
+        <item name="android:textColorPrimaryInverse">@color/light_text_primary</item>
+        <item name="android:colorAccent">@color/oled_accent</item>
+        <item name="colorPrimary">@color/oled_accent</item>
+        <item name="colorSecondary">@color/oled_accent</item>
+        <item name="colorControlNormal">@color/oled_text_secondary</item>
+        <item name="colorControlActivated">@color/oled_accent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">@color/oled_bg</item>
+        <item name="android:navigationBarColor">@color/oled_bg</item>
+    </style>
+
+    <!-- 3. Gruvbox Light Theme -->
+    <style name="Theme.InferDroid.GruvboxLight" parent="Theme.InferDroid.Base.Light">
+        <item name="android:windowBackground">@color/gruvbox_light_bg</item>
+        <item name="android:colorBackground">@color/gruvbox_light_bg</item>
+        <item name="colorSurface">@color/gruvbox_light_surface</item>
+        <item name="android:textColor">@color/gruvbox_light_text_primary</item>
+        <item name="android:textColorPrimary">@color/gruvbox_light_text_primary</item>
+        <item name="android:textColorSecondary">@color/gruvbox_light_text_secondary</item>
+        <item name="android:textColorHint">@color/gruvbox_light_text_secondary</item>
+        <item name="android:editTextColor">@color/gruvbox_light_text_primary</item>
+        <item name="android:textColorPrimaryInverse">@color/gruvbox_dark_text_primary</item>
+        <item name="android:colorAccent">@color/gruvbox_light_accent</item>
+        <item name="colorPrimary">@color/gruvbox_light_accent</item>
+        <item name="colorSecondary">@color/gruvbox_light_accent</item>
+        <item name="colorControlNormal">@color/gruvbox_light_text_secondary</item>
+        <item name="colorControlActivated">@color/gruvbox_light_accent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:statusBarColor">@color/gruvbox_light_bg</item>
+        <item name="android:navigationBarColor">@color/gruvbox_light_bg</item>
+    </style>
+
+    <!-- 4. Gruvbox Dark Theme -->
+    <style name="Theme.InferDroid.GruvboxDark" parent="Theme.InferDroid.Base.Dark">
+        <item name="android:windowBackground">@color/gruvbox_dark_bg</item>
+        <item name="android:colorBackground">@color/gruvbox_dark_bg</item>
+        <item name="colorSurface">@color/gruvbox_dark_surface</item>
+        <item name="android:textColor">@color/gruvbox_dark_text_primary</item>
+        <item name="android:textColorPrimary">@color/gruvbox_dark_text_primary</item>
+        <item name="android:textColorSecondary">@color/gruvbox_dark_text_secondary</item>
+        <item name="android:textColorHint">@color/gruvbox_dark_text_secondary</item>
+        <item name="android:editTextColor">@color/gruvbox_dark_text_primary</item>
+        <item name="android:textColorPrimaryInverse">@color/gruvbox_light_text_primary</item>
+        <item name="android:colorAccent">@color/gruvbox_dark_accent</item>
+        <item name="colorPrimary">@color/gruvbox_dark_accent</item>
+        <item name="colorSecondary">@color/gruvbox_dark_accent</item>
+        <item name="colorControlNormal">@color/gruvbox_dark_text_secondary</item>
+        <item name="colorControlActivated">@color/gruvbox_dark_accent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:statusBarColor">@color/gruvbox_dark_bg</item>
+        <item name="android:navigationBarColor">@color/gruvbox_dark_bg</item>
+    </style>
+
+    <!-- Alias for default application theme -->
+    <style name="AppTheme" parent="Theme.InferDroid.Light" />
 </resources>

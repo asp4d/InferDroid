@@ -1,7 +1,6 @@
 package dev.inferdroid;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -21,11 +20,12 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
+import androidx.appcompat.app.AppCompatActivity;
 import dev.inferdroid.engine.EngineManager;
 import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.server.ServerConfig;
 
-public final class MainActivity extends Activity implements EngineManager.Listener, InferenceService.ServerListener {
+public final class MainActivity extends AppCompatActivity implements EngineManager.Listener, InferenceService.ServerListener {
     private static final int PICK_MODEL = 1;
     private static final int NOTIFICATIONS = 2;
     private InferenceService service;
@@ -57,6 +57,8 @@ public final class MainActivity extends Activity implements EngineManager.Listen
     private boolean bound;
     private boolean permissionInFlight;
     private Runnable pendingAction;
+    private String currentAppliedTheme;
+    private String currentAppliedLanguage;
 
     private final ServiceConnection connection = new ServiceConnection() {
         @Override public void onServiceConnected(ComponentName name, IBinder binder) {
@@ -79,8 +81,12 @@ public final class MainActivity extends Activity implements EngineManager.Listen
     };
 
     @Override protected void onCreate(Bundle savedInstanceState) {
+        ThemeHelper.applyTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        currentAppliedTheme = ThemeHelper.getSelectedTheme(this);
+        currentAppliedLanguage = ThemeHelper.getSelectedLanguage(this);
+
         View content = findViewById(R.id.content);
         int padding = Math.round(16 * getResources().getDisplayMetrics().density);
         content.setOnApplyWindowInsetsListener((view, insets) -> {
@@ -91,6 +97,10 @@ public final class MainActivity extends Activity implements EngineManager.Listen
             return insets;
         });
         content.requestApplyInsets();
+
+        findViewById(R.id.btn_ui_settings).setOnClickListener(view ->
+            startActivity(new Intent(this, UiSettingsActivity.class))
+        );
 
         preferences = getSharedPreferences("inference", MODE_PRIVATE);
         modelSource = findViewById(R.id.model_source);
@@ -154,6 +164,15 @@ public final class MainActivity extends Activity implements EngineManager.Listen
         bound = bindService(new Intent(this, InferenceService.class),
                 connection, BIND_AUTO_CREATE);
         updateNotificationStatus();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        String newTheme = ThemeHelper.getSelectedTheme(this);
+        String newLang = ThemeHelper.getSelectedLanguage(this);
+        if (!newTheme.equals(currentAppliedTheme) || !newLang.equals(currentAppliedLanguage)) {
+            recreate();
+        }
     }
 
     @Override protected void onStop() {

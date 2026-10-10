@@ -68,6 +68,11 @@ android {
     }
 }
 
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.14.0'
+}
+
 def stageRuntimeLibraries = tasks.register('stageRuntimeLibraries', Sync) {
     from(rootProject.file('native/artifacts/arm64-v8a')) {
         include 'libLiteRtDispatch_GoogleTensor.so', 'libGemmaModelConstraintProvider.so'

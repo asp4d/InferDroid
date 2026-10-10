@@ -38,4 +38,27 @@
     <string name="start_server">Start server</string>
     <string name="stop_server">Stop server</string>
     <string name="server_stopped">Local API stopped.</string>
+
+    <!-- UI Settings -->
+    <string name="ui_settings_title">UI Settings</string>
+    <string name="theme_section_title">App Theme</string>
+    <string name="theme_section_help">Choose a visual style for the application interface.</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_light_desc">Classic clean light theme</string>
+    <string name="theme_oled_dark">OLED Dark</string>
+    <string name="theme_oled_dark_desc">Pure black background to save power on OLED screens</string>
+    <string name="theme_auto">Auto (System Light/Dark)</string>
+    <string name="theme_auto_desc">Automatically switches between Light and OLED Dark based on system settings</string>
+    <string name="theme_gruvbox_light">Gruvbox Light</string>
+    <string name="theme_gruvbox_light_desc">Retro warm light palette</string>
+    <string name="theme_gruvbox_dark">Gruvbox Dark</string>
+    <string name="theme_gruvbox_dark_desc">Retro warm dark palette</string>
+    <string name="theme_auto_gruvbox">Auto Gruvbox</string>
+    <string name="theme_auto_gruvbox_desc">Automatically switches between Gruvbox Light and Dark based on system settings</string>
+    <string name="language_section_title">Language</string>
+    <string name="language_section_help">Choose application display language.</string>
+    <string name="language_system">System Default</string>
+    <string name="language_en">English</string>
+    <string name="language_it">Italiano (Italian)</string>
+    <string name="back">Back</string>
 </resources>
