@@ -12,7 +12,7 @@
     <string name="cancel">Annulla</string>
     <string name="notification_channel">Inferenza locale</string>
     <string name="notification_channel_description">Stato e controlli mentre l\'inferenza locale o l\'API localhost è in esecuzione.</string>
-    <string name="notification_title">InferDroid · Inferenza Tensor G5</string>
+    <string name="notification_title">InferDroid · Inferenza locale</string>
     <string name="notifications_disabled">Il permesso per le notifiche è disattivato. Android potrebbe nascondere la notifica del servizio; abilita le notifiche nelle impostazioni dell\'app per mostrarla.</string>
     <string name="service_connecting">Connessione al servizio di inferenza…</string>
     <string name="service_disconnected">Servizio di inferenza disconnesso. Riconnetti e ricarica il modello.</string>
@@ -38,6 +38,19 @@
     <string name="start_server">Avvia server</string>
     <string name="stop_server">Arresta server</string>
     <string name="server_stopped">API locale arrestata.</string>
+    <string name="speech_label">Riconoscimento vocale offline</string>
+    <string name="speech_help">Whisper tiny · multilingue · CPU. Importa la cartella del modello verificato, poi scegli un file audio. Fino a 25 MiB e 120 secondi. L\'audio rimane sul dispositivo.</string>
+    <string name="import_speech_model">Importa cartella modello vocale</string>
+    <string name="speech_model_missing">Modello vocale non importato. Consulta il README per scaricarlo.</string>
+    <string name="speech_model_ready">Whisper tiny int8 · modello multilingue importato</string>
+    <string name="load_speech_model">Carica voce</string>
+    <string name="unload_speech_model">Scarica voce</string>
+    <string name="choose_audio">Scegli file audio</string>
+    <string name="audio_not_selected">Scegli un file audio da trascrivere.</string>
+    <string name="audio_temporary">Audio selezionato per questo avvio. Questo provider non ha concesso l\'accesso permanente.</string>
+    <string name="speech_language">Lingua parlata: en, it, o vuoto per il rilevamento</string>
+    <string name="speech_language_invalid">Usa un codice lingua Whisper come en o it, oppure lascia vuoto.</string>
+    <string name="transcribe_audio">Trascrivi audio</string>
 
     <!-- UI Settings -->
     <string name="ui_settings_title">Impostazioni Interfaccia</string>

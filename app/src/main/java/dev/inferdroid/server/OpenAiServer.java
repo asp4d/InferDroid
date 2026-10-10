@@ -2,6 +2,8 @@ package dev.inferdroid.server;
 
 import dev.inferdroid.engine.GenerationListener;
 import dev.inferdroid.engine.GenerationResult;
+import dev.inferdroid.speech.TranscriptionListener;
+import dev.inferdroid.speech.TranscriptionResult;
 import dev.inferdroid.server.OpenAiProtocol.ApiError;
 import dev.inferdroid.server.OpenAiProtocol.ChatRequest;
 import java.io.BufferedInputStream;
@@ -46,6 +48,7 @@ public final class OpenAiServer implements AutoCloseable {
     private final String modelSource;
     private final boolean verbose;
     private final ChatGateway gateway;
+    private final TranscriptionGateway speech;
     private final Runnable onUnexpectedStop;
     private final Set<Socket> clients = ConcurrentHashMap.newKeySet();
     private final ThreadPoolExecutor workers = new ThreadPoolExecutor(4, 4, 0, TimeUnit.SECONDS,
@@ -57,10 +60,16 @@ public final class OpenAiServer implements AutoCloseable {
 
     public OpenAiServer(ServerConfig config, String modelSource, boolean verbose, ChatGateway gateway,
                         Runnable onUnexpectedStop) {
+        this(config, modelSource, verbose, gateway, null, onUnexpectedStop);
+    }
+
+    public OpenAiServer(ServerConfig config, String modelSource, boolean verbose, ChatGateway gateway,
+                        TranscriptionGateway speech, Runnable onUnexpectedStop) {
         this.config = config;
         this.modelSource = modelSource;
         this.verbose = verbose;
         this.gateway = gateway;
+        this.speech = speech;
         this.onUnexpectedStop = onUnexpectedStop;
         deadlines.setRemoveOnCancelPolicy(true);
     }
@@ -127,7 +136,7 @@ public final class OpenAiServer implements AutoCloseable {
                 throw new ApiError(403, "Use a localhost URL to reach InferDroid.", "permission_error", "invalid_host", null);
             }
             String path = request.target.split("\\?", 2)[0];
-            if (!Set.of("/v1/models", "/v1/chat/completions").contains(path)) {
+            if (!Set.of("/v1/models", "/v1/chat/completions", "/v1/audio/transcriptions").contains(path)) {
                 throw new ApiError(404, "Unknown API endpoint.", "invalid_request_error", "not_found", null);
             }
             if (request.headers.containsKey("origin") && !config.cors) {
@@ -148,10 +157,14 @@ public final class OpenAiServer implements AutoCloseable {
             }
             if (path.equals("/v1/models")) {
                 if (!request.method.equals("GET")) throw methodError();
-                json(output, 200, OpenAiProtocol.models());
+                json(output, 200, OpenAiProtocol.models(!modelSource.isEmpty(), speech != null && speech.isAvailable()));
                 return;
             }
             if (!request.method.equals("POST")) throw methodError();
+            if (path.equals("/v1/audio/transcriptions")) {
+                transcribe(socket, input, output, request, headerTimeout);
+                return;
+            }
             String contentType = request.headers.getOrDefault("content-type", "").split(";", 2)[0].trim();
             if (!contentType.equalsIgnoreCase("application/json")) {
                 throw new ApiError(415, "Send Content-Type: application/json.", "invalid_request_error", "unsupported_media_type", null);
@@ -177,6 +190,8 @@ public final class OpenAiServer implements AutoCloseable {
                 throw OpenAiProtocol.invalid("JSON must be valid UTF-8.", null);
             }
             ChatRequest chat = OpenAiProtocol.parse(body, modelSource, verbose);
+            if (modelSource.isEmpty()) throw new ApiError(503, "Choose the Gemma chat model in InferDroid first.",
+                    "server_error", "chat_model_unavailable", "model");
             headerTimeout.cancel(false);
             requestTimeout = deadlines.schedule(() -> closeSocket(socket), REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             session = new Session(socket, chat.stream);
@@ -254,6 +269,61 @@ public final class OpenAiServer implements AutoCloseable {
         }
     }
 
+    private void transcribe(Socket socket, InputStream input, OutputStream output, HttpRequest request,
+                            ScheduledFuture<?> intakeDeadline) throws Exception {
+        String type = request.headers.getOrDefault("content-type", "");
+        if (!type.split(";", 2)[0].trim().equalsIgnoreCase("multipart/form-data")) {
+            throw new ApiError(415, "Upload audio using multipart/form-data with file and model fields.",
+                    "invalid_request_error", "unsupported_media_type", null);
+        }
+        String length = request.headers.get("content-length");
+        if (length == null || !length.matches("[0-9]{1,10}")) throw new ApiError(411,
+                "Supply a valid Content-Length.", "invalid_request_error", "length_required", null);
+        long size = Long.parseLong(length);
+        if (size > AudioProtocol.MAX_BODY) throw new ApiError(413, "Transcription upload exceeds 25 MiB plus 16 KiB metadata.",
+                "invalid_request_error", "request_too_large", "file");
+        byte[] body = new byte[(int) size];
+        int pos = 0;
+        while (pos < body.length) {
+            int count = input.read(body, pos, body.length - pos);
+            if (count < 0) throw new EOFException();
+            pos += count;
+        }
+        AudioProtocol.Request audio = AudioProtocol.parse(type, body);
+        if (speech == null || !speech.isAvailable()) throw AudioProtocol.unavailable();
+        intakeDeadline.cancel(false);
+        ScheduledFuture<?> deadline = deadlines.schedule(() -> closeSocket(socket), REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        AudioSession session = new AudioSession();
+        boolean admitted = false;
+        try {
+            admitted = speech.transcribe(audio.transcription, session);
+            if (!admitted) throw new ApiError(429, "Chat or speech inference is busy. Retry when idle.",
+                    "rate_limit_error", "engine_busy", null);
+            socket.setSoTimeout(100);
+            while (session.result == null) {
+                try {
+                    if (input.read() < 0) throw new EOFException("Client disconnected.");
+                    throw new IOException("HTTP pipelining is unsupported.");
+                } catch (SocketTimeoutException ignored) { }
+                if (Thread.currentThread().isInterrupted() || socket.isClosed()) throw new IOException("Server stopped.");
+            }
+            if (!session.result.success) throw AudioProtocol.failure(session.result);
+            if (audio.responseFormat.equals("text")) {
+                byte[] text = session.result.text.getBytes(StandardCharsets.UTF_8);
+                headers(output, 200, "text/plain; charset=utf-8", text.length);
+                output.write(text); output.flush();
+            } else json(output, 200, AudioProtocol.response(session.result, audio.responseFormat));
+        } finally {
+            deadline.cancel(false);
+            if (admitted && session.result == null) speech.cancel(session);
+        }
+    }
+
+    private static final class AudioSession implements TranscriptionListener {
+        volatile TranscriptionResult result;
+        @Override public void onComplete(TranscriptionResult result) { this.result = result; }
+    }
+
     private void authenticate(HttpRequest request) throws ApiError {
         if (!config.requireKey) return;
         String authorization = request.headers.getOrDefault("authorization", "");
@@ -265,7 +335,7 @@ public final class OpenAiServer implements AutoCloseable {
     }
 
     private static ApiError methodError() {
-        return new ApiError(405, "Use GET /v1/models or POST /v1/chat/completions.", "invalid_request_error", "method_not_allowed", null);
+        return new ApiError(405, "Use GET /v1/models, POST /v1/chat/completions, or POST /v1/audio/transcriptions.", "invalid_request_error", "method_not_allowed", null);
     }
 
     private static final class HttpRequest {
@@ -326,7 +396,7 @@ public final class OpenAiServer implements AutoCloseable {
             case 401 -> "Unauthorized"; case 403 -> "Forbidden"; case 404 -> "Not Found";
             case 405 -> "Method Not Allowed"; case 408 -> "Request Timeout"; case 411 -> "Length Required";
             case 413 -> "Content Too Large"; case 415 -> "Unsupported Media Type"; case 417 -> "Expectation Failed";
-            case 429 -> "Too Many Requests"; default -> "Internal Server Error";
+            case 429 -> "Too Many Requests"; case 503 -> "Service Unavailable"; default -> "Internal Server Error";
         };
         StringBuilder headers = new StringBuilder("HTTP/1.1 " + status + " " + reason + "\r\nConnection: close\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n");
         if (contentType != null) headers.append("Content-Type: ").append(contentType).append("\r\n");

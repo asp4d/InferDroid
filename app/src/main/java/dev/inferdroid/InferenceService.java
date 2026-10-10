@@ -13,10 +13,18 @@ import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.Handler;
 import android.os.Looper;
+import android.net.Uri;
 import dev.inferdroid.engine.EngineManager;
 import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.engine.GenerationListener;
 import dev.inferdroid.engine.GemmaInferenceEngine;
+import dev.inferdroid.engine.WorkGate;
+import dev.inferdroid.speech.SpeechManager;
+import dev.inferdroid.speech.SpeechModelStore;
+import dev.inferdroid.speech.SherpaSpeechEngine;
+import dev.inferdroid.speech.TranscriptionRequest;
+import dev.inferdroid.speech.TranscriptionListener;
+import dev.inferdroid.server.TranscriptionGateway;
 import dev.inferdroid.server.ChatGateway;
 import dev.inferdroid.server.OpenAiServer;
 import dev.inferdroid.server.ServerConfig;
@@ -28,7 +36,7 @@ import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 /** Private foreground owner of the retained model and optional loopback server. */
-public final class InferenceService extends Service implements EngineManager.Listener {
+public final class InferenceService extends Service implements EngineManager.Listener, SpeechManager.Listener {
     public interface ServerListener { void onServerChanged(boolean running, String status); }
     private static final String CHANNEL = "inference";
     private static final int NOTIFICATION = 1;
@@ -37,6 +45,9 @@ public final class InferenceService extends Service implements EngineManager.Lis
     private static final String CANCEL = "dev.inferdroid.CANCEL_INFERENCE";
     private final LocalBinder binder = new LocalBinder();
     private EngineManager manager;
+    private SpeechManager speech;
+    private SpeechModelStore speechModels;
+    private final WorkGate gate = new WorkGate();
     private NotificationManager notifications;
     private boolean foreground;
     private boolean wanted;
@@ -58,18 +69,28 @@ public final class InferenceService extends Service implements EngineManager.Lis
         channel.setDescription(getString(R.string.notification_channel_description));
         notifications.createNotificationChannel(channel);
 
+        manager = new EngineManager(new GemmaInferenceEngine(this), workGuard("InferDroid:inference"), gate);
+        speechModels = new SpeechModelStore(this);
+        speech = new SpeechManager(new SherpaSpeechEngine(speechModels), workGuard("InferDroid:speech"), gate);
+        speech.attach(this);
+        manager.attach(this);
+    }
+
+    private EngineManager.WorkGuard workGuard(String tag) {
         PowerManager.WakeLock wake = getSystemService(PowerManager.class)
-                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "InferDroid:inference");
+                .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, tag);
         wake.setReferenceCounted(false);
-        manager = new EngineManager(new GemmaInferenceEngine(this), new EngineManager.WorkGuard() {
+        return new EngineManager.WorkGuard() {
             @Override public void begin() { wake.acquire(10 * 60 * 1000L); }
             @Override public void end() { if (wake.isHeld()) wake.release(); }
-        });
-        manager.attach(this);
+        };
     }
 
     @Override public IBinder onBind(Intent intent) { return binder; }
     public EngineManager getManager() { return manager; }
+    public SpeechManager getSpeechManager() { return speech; }
+    public boolean hasSpeechModel() { return speechModels.isAvailable(); }
+    public boolean isBusy() { return gate.isBusy() || manager.getState().busy || speech.getState().busy; }
 
     public boolean isServerRunning() { return server != null && server.isRunning(); }
     public void attachServer(ServerListener listener) {
@@ -86,7 +107,6 @@ public final class InferenceService extends Service implements EngineManager.Lis
         if (shuttingDown || manager.getState().phase == EngineManager.Phase.STOPPING) {
             throw new IllegalStateException("Wait for the service to finish stopping.");
         }
-        if (modelSource.isEmpty()) throw new IllegalArgumentException("Choose a model first.");
         ensureForeground();
         OpenAiServer candidate = new OpenAiServer(config, modelSource, verbose, new ChatGateway() {
             @Override public boolean generate(GenerationRequest request, GenerationListener listener) throws Exception {
@@ -104,6 +124,16 @@ public final class InferenceService extends Service implements EngineManager.Lis
             @Override public void cancel(GenerationListener listener) {
                 main.post(() -> manager.cancel(listener));
             }
+        }, new TranscriptionGateway() {
+            @Override public boolean isAvailable() { return speechModels.isAvailable(); }
+            @Override public boolean transcribe(TranscriptionRequest request, TranscriptionListener listener) throws Exception {
+                FutureTask<Boolean> admission = new FutureTask<>(() ->
+                        !shuttingDown && isServerRunning() && speech.transcribe(request, listener));
+                main.post(admission);
+                try { return admission.get(5, TimeUnit.SECONDS); }
+                catch (Exception error) { admission.cancel(false); cancel(listener); throw error; }
+            }
+            @Override public void cancel(TranscriptionListener listener) { main.post(() -> speech.cancel(listener)); }
         }, () -> main.post(() -> {
             // A stopped older server must not close a newly started listener.
             if (server != null && !server.isRunning()) {
@@ -147,7 +177,8 @@ public final class InferenceService extends Service implements EngineManager.Lis
     }
 
     private void stopIfIdle() {
-        if (!isServerRunning() && manager.getState().phase == EngineManager.Phase.UNLOADED) {
+        if (!isServerRunning() && manager.getState().phase == EngineManager.Phase.UNLOADED
+                && speech.getState().phase == SpeechManager.Phase.UNLOADED) {
             wanted = false;
             foreground = false;
             stopForeground(STOP_FOREGROUND_REMOVE);
@@ -156,30 +187,51 @@ public final class InferenceService extends Service implements EngineManager.Lis
     }
 
     public boolean load(String model, boolean verbose) {
-        if (shuttingDown || manager.getState().busy) return false;
+        if (shuttingDown || isBusy()) return false;
         ensureForeground();
         return manager.load(model, verbose);
     }
 
     public boolean generate(GenerationRequest request) {
-        if (shuttingDown || manager.getState().busy) return false;
+        if (shuttingDown || isBusy()) return false;
         ensureForeground();
         return manager.generate(request);
     }
 
-    public void cancel() { manager.cancel(); }
+    public boolean importSpeechModel(Uri folder) {
+        if (shuttingDown || isBusy() || isServerRunning()) return false;
+        ensureForeground();
+        return speech.importModel(token -> speechModels.importTree(folder, token));
+    }
+    public boolean loadSpeech() {
+        if (shuttingDown || isBusy()) return false;
+        ensureForeground();
+        return speech.load();
+    }
+    public boolean transcribe(TranscriptionRequest request) {
+        if (shuttingDown || isBusy()) return false;
+        ensureForeground();
+        return speech.transcribe(request, null);
+    }
+    public void unloadSpeech() { speech.unload(this::stopIfIdle); }
+    public void cancel() { manager.cancel(); speech.cancel(); }
 
     public void unload() {
+        if (shuttingDown) return;
         shuttingDown = true;
         closeServer();
         publishServer();
-        manager.unload(() -> {
+        int[] remaining = {2};
+        Runnable stopped = () -> {
+            if (--remaining[0] != 0) return;
             wanted = false;
             foreground = false;
             stopForeground(STOP_FOREGROUND_REMOVE);
             stopSelf();
             shuttingDown = false;
-        });
+        };
+        manager.unload(stopped);
+        speech.unload(stopped);
     }
 
     private void ensureForeground() {
@@ -214,30 +266,40 @@ public final class InferenceService extends Service implements EngineManager.Lis
 
     @Override public void onStateChanged(EngineManager.State state) {
         if (!foreground) return;
-        if (state.phase == EngineManager.Phase.UNLOADED && !isServerRunning()) {
+        if (state.phase == EngineManager.Phase.UNLOADED && !isServerRunning()
+                && speech.getState().phase == SpeechManager.Phase.UNLOADED) {
             stopIfIdle();
         } else {
             notifications.notify(NOTIFICATION, notification(state));
         }
     }
 
+    @Override public void onSpeechChanged(SpeechManager.State state) {
+        if (!foreground) return;
+        stopIfIdle();
+        if (foreground) notifications.notify(NOTIFICATION, notification(manager.getState()));
+    }
+
     private Notification notification(EngineManager.State state) {
         PendingIntent open = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        SpeechManager.State audio = speech.getState();
+        String details = state.status + "\n" + audio.status;
+        String current = audio.busy || audio.loaded && !state.loaded ? audio.status : state.status;
         Notification.Builder builder = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentTitle(getString(R.string.notification_title))
-                .setContentText(isServerRunning() ? serverStatus : state.status)
+                .setContentText(isServerRunning() ? serverStatus : current)
                 .setStyle(new Notification.BigTextStyle().bigText(isServerRunning()
-                        ? serverStatus + "\n" + state.status : state.status))
-                .setSubText(state.backend)
+                        ? serverStatus + "\n" + details : details))
+                .setSubText(audio.busy || audio.loaded && !state.loaded ? "Whisper tiny · CPU" : state.backend)
                 .setContentIntent(open)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE);
-        if (state.canCancel) builder.addAction(new Notification.Action.Builder(
+        if (state.canCancel || audio.canCancel) builder.addAction(new Notification.Action.Builder(
                 null, getString(R.string.cancel), action(CANCEL, 1)).build());
         builder.addAction(new Notification.Action.Builder(
                 null, getString(R.string.unload), action(STOP, 2)).build());
@@ -257,7 +319,9 @@ public final class InferenceService extends Service implements EngineManager.Lis
         closeServer();
         serverListeners.clear();
         manager.detach(this);
+        speech.detach(this);
         manager.close();
+        speech.close();
         stopForeground(STOP_FOREGROUND_REMOVE);
         super.onDestroy();
     }

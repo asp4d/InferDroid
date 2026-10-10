@@ -24,12 +24,29 @@ import androidx.appcompat.app.AppCompatActivity;
 import dev.inferdroid.engine.EngineManager;
 import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.server.ServerConfig;
+import dev.inferdroid.speech.SpeechManager;
+import dev.inferdroid.speech.SpeechLanguages;
+import dev.inferdroid.speech.TranscriptionRequest;
 
-public final class MainActivity extends AppCompatActivity implements EngineManager.Listener, InferenceService.ServerListener {
+public final class MainActivity extends AppCompatActivity implements EngineManager.Listener, InferenceService.ServerListener, SpeechManager.Listener {
     private static final int PICK_MODEL = 1;
     private static final int NOTIFICATIONS = 2;
+    private static final int PICK_SPEECH_MODEL = 3;
+    private static final int PICK_AUDIO = 4;
     private InferenceService service;
     private EngineManager manager;
+    private SpeechManager speech;
+    private Button importSpeech;
+    private Button loadSpeech;
+    private Button unloadSpeech;
+    private Button chooseAudio;
+    private Button transcribe;
+    private EditText speechLanguage;
+    private TextView speechModelStatus;
+    private TextView speechStatus;
+    private TextView audioSource;
+    private TextView transcript;
+    private Uri selectedAudio;
     private SharedPreferences preferences;
     private EditText modelSource;
     private EditText prompt;
@@ -65,15 +82,19 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
             if (!started) return;
             service = ((InferenceService.LocalBinder) binder).getService();
             manager = service.getManager();
+            speech = service.getSpeechManager();
             manager.attach(MainActivity.this);
+            speech.attach(MainActivity.this);
             service.attachServer(MainActivity.this);
             executePending();
         }
 
         @Override public void onServiceDisconnected(ComponentName name) {
             if (manager != null) manager.detach(MainActivity.this);
+            if (speech != null) speech.detach(MainActivity.this);
             if (service != null) service.detachServer(MainActivity.this);
             manager = null;
+            speech = null;
             service = null;
             setDisconnected();
             status.setText(R.string.service_disconnected);
@@ -116,6 +137,27 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         status = findViewById(R.id.status);
         output = findViewById(R.id.output);
         diagnostics = findViewById(R.id.diagnostics);
+        importSpeech = findViewById(R.id.import_speech_model);
+        loadSpeech = findViewById(R.id.load_speech_model);
+        unloadSpeech = findViewById(R.id.unload_speech_model);
+        chooseAudio = findViewById(R.id.choose_audio);
+        transcribe = findViewById(R.id.transcribe_audio);
+        speechLanguage = findViewById(R.id.speech_language);
+        speechModelStatus = findViewById(R.id.speech_model_status);
+        speechStatus = findViewById(R.id.speech_status);
+        audioSource = findViewById(R.id.audio_source);
+        transcript = findViewById(R.id.transcript);
+        String audio = preferences.getString("audio_uri", "");
+        selectedAudio = audio.isEmpty() ? null : Uri.parse(audio);
+        audioSource.setText(selectedAudio == null ? getString(R.string.audio_not_selected) : selectedAudio.toString());
+        speechLanguage.setText(preferences.getString("speech_language", ""));
+        importSpeech.setOnClickListener(view -> chooseSpeechModel());
+        chooseAudio.setOnClickListener(view -> chooseAudioFile());
+        loadSpeech.setOnClickListener(view -> withNotificationPermission(() -> {
+            if (!service.loadSpeech()) speechStatus.setText(R.string.engine_busy);
+        }));
+        unloadSpeech.setOnClickListener(view -> { if (service != null) service.unloadSpeech(); });
+        transcribe.setOnClickListener(view -> transcribeAudio());
         serverPreferences = getSharedPreferences("server", MODE_PRIVATE);
         serverPort = findViewById(R.id.server_port);
         apiKey = findViewById(R.id.api_key);
@@ -178,10 +220,12 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     @Override protected void onStop() {
         started = false;
         if (manager != null) manager.detach(this);
+        if (speech != null) speech.detach(this);
         if (service != null) service.detachServer(this);
         if (bound) unbindService(connection);
         bound = false;
         manager = null;
+        speech = null;
         service = null;
         super.onStop();
     }
@@ -193,7 +237,26 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         cancel.setEnabled(false);
         startServer.setEnabled(false);
         stopServer.setEnabled(false);
+        importSpeech.setEnabled(false);
+        loadSpeech.setEnabled(false);
+        unloadSpeech.setEnabled(false);
+        chooseAudio.setEnabled(false);
+        transcribe.setEnabled(false);
         status.setText(R.string.service_connecting);
+    }
+
+    private void chooseSpeechModel() {
+        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        picker.putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+                Uri.parse("content://com.android.externalstorage.documents/document/primary%3AAIModels"));
+        startActivityForResult(picker, PICK_SPEECH_MODEL);
+    }
+
+    private void chooseAudioFile() {
+        startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("audio/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), PICK_AUDIO);
     }
 
     private void chooseModel() {
@@ -209,6 +272,25 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri selected = data.getData();
+            if (requestCode == PICK_SPEECH_MODEL) {
+                withNotificationPermission(() -> {
+                    if (!service.importSpeechModel(selected)) speechStatus.setText(R.string.engine_busy);
+                });
+                return;
+            }
+            if (requestCode == PICK_AUDIO) {
+                selectedAudio = selected;
+                audioSource.setText(selected.toString());
+                try {
+                    getContentResolver().takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    preferences.edit().putString("audio_uri", selected.toString()).apply();
+                } catch (SecurityException error) { speechStatus.setText(R.string.audio_temporary); }
+                if (manager != null) onStateChanged(manager.getState());
+                return;
+            }
+        }
         if (requestCode != PICK_MODEL || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         modelSource.setText(uri.toString());
@@ -256,8 +338,8 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     }
 
     private void startLocalServer() {
-        String source = selectedModel();
-        if (source == null) return;
+        String source = modelSource.getText().toString().trim();
+        preferences.edit().putString("model", source).putBoolean("verbose", verbose.isChecked()).apply();
         try {
             int port = Integer.parseInt(serverPort.getText().toString().trim());
             if (port < 1 || port > 65535) throw new IllegalArgumentException(getString(R.string.invalid_port));
@@ -277,18 +359,22 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         }
     }
 
+    private void transcribeAudio() {
+        if (selectedAudio == null) { speechStatus.setText(R.string.audio_not_selected); return; }
+        String language = speechLanguage.getText().toString().trim().toLowerCase(java.util.Locale.ROOT);
+        if (!SpeechLanguages.supports(language)) { speechStatus.setText(R.string.speech_language_invalid); return; }
+        preferences.edit().putString("speech_language", language).apply();
+        Uri audio = selectedAudio;
+        TranscriptionRequest request = new TranscriptionRequest(() -> getContentResolver().openInputStream(audio), language);
+        withNotificationPermission(() -> {
+            if (!service.transcribe(request)) speechStatus.setText(R.string.engine_busy);
+        });
+    }
+
     private void withNotificationPermission(Runnable action) {
-        if (service == null || permissionInFlight) return;
+        if (permissionInFlight) return;
         pendingAction = action;
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                && !preferences.getBoolean("notification_permission_asked", false)) {
-            permissionInFlight = true;
-            preferences.edit().putBoolean("notification_permission_asked", true).apply();
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATIONS);
-        } else {
-            executePending();
-        }
+        executePending();
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
@@ -301,6 +387,14 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
 
     private void executePending() {
         if (!started || service == null || permissionInFlight || pendingAction == null) return;
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                && !preferences.getBoolean("notification_permission_asked", false)) {
+            permissionInFlight = true;
+            preferences.edit().putBoolean("notification_permission_asked", true).apply();
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATIONS);
+            return;
+        }
         Runnable action = pendingAction;
         pendingAction = null;
         try {
@@ -320,26 +414,43 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     }
 
     @Override public void onStateChanged(EngineManager.State state) {
-        run.setEnabled(!state.busy);
-        load.setEnabled(!state.busy);
+        boolean busy = service != null && service.isBusy();
+        SpeechManager.State audio = speech == null ? null : speech.getState();
+        run.setEnabled(!busy);
+        load.setEnabled(!busy);
         boolean serving = service != null && service.isServerRunning();
-        unload.setEnabled((serving || state.loaded || state.busy) && state.phase != EngineManager.Phase.STOPPING);
-        cancel.setEnabled(state.canCancel);
-        choose.setEnabled(!state.busy && !serving);
-        modelSource.setEnabled(!state.busy && !serving);
-        prompt.setEnabled(!state.busy);
-        verbose.setEnabled(!state.busy && !serving);
-        startServer.setEnabled(!serving && state.phase != EngineManager.Phase.STOPPING);
+        boolean stopping = state.phase == EngineManager.Phase.STOPPING || audio != null && audio.phase == SpeechManager.Phase.STOPPING;
+        unload.setEnabled((serving || state.loaded || busy || audio != null && audio.loaded) && !stopping);
+        cancel.setEnabled(state.canCancel || audio != null && audio.canCancel);
+        choose.setEnabled(!busy && !serving);
+        modelSource.setEnabled(!busy && !serving);
+        prompt.setEnabled(!busy);
+        verbose.setEnabled(!busy && !serving);
+        startServer.setEnabled(!serving && !busy);
         stopServer.setEnabled(serving);
         serverPort.setEnabled(!serving);
         apiKey.setEnabled(!serving);
         requireKey.setEnabled(!serving);
         cors.setEnabled(!serving);
         regenerateKey.setEnabled(!serving);
+        boolean hasSpeechModel = service != null && service.hasSpeechModel();
+        importSpeech.setEnabled(!busy && !serving);
+        loadSpeech.setEnabled(!busy && hasSpeechModel);
+        unloadSpeech.setEnabled(audio != null && audio.loaded && !busy);
+        chooseAudio.setEnabled(!busy);
+        transcribe.setEnabled(!busy && hasSpeechModel && selectedAudio != null);
+        speechLanguage.setEnabled(!busy);
+        speechModelStatus.setText(hasSpeechModel ? R.string.speech_model_ready : R.string.speech_model_missing);
         backend.setText(state.backend);
         status.setText(state.status);
         output.setText(state.result == null ? "" : state.result.text);
         diagnostics.setText(state.result == null ? "" : state.result.diagnostics);
+    }
+
+    @Override public void onSpeechChanged(SpeechManager.State state) {
+        speechStatus.setText(state.status);
+        transcript.setText(state.result == null ? "" : state.result.text);
+        if (manager != null) onStateChanged(manager.getState());
     }
 
     @Override public void onServerChanged(boolean running, String message) {

@@ -4,12 +4,14 @@
 
 # InferDroid
 
-A minimal **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
-E2B NPU path. A Java foreground service owns the native engine and keeps the
-selected model loaded between requests and serves an authenticated
-**OpenAI-compatible localhost API**, including live SSE streaming. The UI
-shows generated text, backend status, native diagnostics, server controls, and customizable themes and languages.
-Inference runs on a worker thread. ASR/TTS, vision, image generation, and
+A native **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
+E2B NPU path and independent **offline speech recognition** using sherpa-onnx
+and multilingual Whisper tiny on CPU. A Java foreground service retains the
+models between requests and serves an authenticated **OpenAI-compatible
+localhost API**, including live chat SSE and audio-file transcription. The UI
+shows generated text, speech transcripts, backend status, model/server controls,
+native diagnostics, and customizable themes and languages. Work runs off the
+UI thread and shares one active-work slot. TTS, vision, image generation, and
 network tools are later work.
 
 **Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
@@ -34,9 +36,20 @@ The live introduction arrived in 43 text chunks, with first content at
 passed. See [local API usage and limits](docs/local-api.md) and
 [the verification record](docs/milestone-verification.md).
 
-Read [the original handoff](pixel_local_ai_server_codex_handoff.md) and
-[the verified native strategy](docs/native-integration.md) for exact source
-APIs, hashes, storage decisions, and licensing notes.
+**Milestone 4 passed on the same device on 2026-10-10.** Public speech
+recordings were transcribed through `/v1/audio/transcriptions` and the UI.
+The final APK's first 6.625-second WAV took 1.41 seconds including speech
+initialization; warm WAV requests took 0.46–1.42 seconds. MP3, M4A/AAC, FLAC, Ogg/Vorbis,
+WebM/Opus, background serving, cancellation/recovery, and shared chat/speech
+429 responses passed. Sixteen lifecycle/API/audio tests passed, and Gemma
+NPU/SSE regression checks passed with both models loaded. Physical ASR accuracy
+checks used English recordings; Italian is supported by the multilingual model
+but has not yet been measured on an Italian recording.
+
+Read [the original handoff](pixel_local_ai_server_codex_handoff.md),
+[the verified native strategy](docs/native-integration.md), and
+[speech setup and limits](docs/speech-recognition.md) for exact source APIs,
+hashes, storage decisions, and licensing notes.
 
 ## Acknowledgements & Development
 
@@ -56,8 +69,8 @@ Android Studio / OpenAI Codex / Gemini).
    Platform Tools, and NDK **30.0.14904198 (r30-beta1)**. Enable preview/show
    package details in SDK Manager for this exact NDK. Do not replace the pinned
    inference stack with a newer LiteRT dependency.
-4. Run the native source build below once from Android Studio's Terminal.
-   The upstream runtime uses Bazel; CMake builds the app's JNI bridge.
+4. Run both native build scripts below once from Android Studio's Terminal.
+   LiteRT uses Bazel; sherpa-onnx uses CMake. Gradle/CMake builds both JNI bridges.
 5. Sync Gradle, select the `app` run configuration and the physical Pixel 10.
    Android Studio **Build APK(s)** / **Run** builds the Java and JNI code and
    packages the prepared native runtime. Run launches the UI, but does not
@@ -97,7 +110,8 @@ app without requiring Java 21 on the phone. See
 ## Reproduce the native runtime
 
 Host tools: Linux x86_64, Bash, JDK 21, `git`, `curl`, `python3`, `rg`,
-`sha256sum`, and **Bazel 7.6.1** or Bazelisk (reads upstream `.bazelversion`).
+`sha256sum`, CMake, `make`, `unzip`, and **Bazel 7.6.1** or Bazelisk
+(reads upstream `.bazelversion`).
 Allow roughly **125 GB** free disk for a complete first source build; the
 reference recipe's first-build estimate is tens of minutes.
 
@@ -107,6 +121,7 @@ export ANDROID_HOME=/absolute/path/to/Android/Sdk
 export ANDROID_NDK_HOME=/absolute/path/to/android-ndk-r30-beta1
 export BAZEL=/absolute/path/to/bazel-7.6.1-linux-x86_64
 ./scripts/build-native.sh
+./scripts/build-speech.sh
 ./gradlew :app:assembleDebug :app:lintDebug
 ```
 
@@ -124,6 +139,7 @@ export ANDROID_HOME=/opt/android-sdk
 export ANDROID_NDK_HOME="$PWD/.deps/toolchains/android-ndk-r30-beta1"
 export BAZEL="$PWD/.deps/tools/bazel-7.6.1-linux-x86_64"
 ./scripts/build-native.sh
+./scripts/build-speech.sh
 ./gradlew :app:assembleDebug :app:lintDebug
 ```
 
@@ -142,6 +158,13 @@ native/artifacts/arm64-v8a/SHA256SUMS
 CMake fails explicitly if any runtime library is missing. It does not build a
 stub APK. Rerun `build-native.sh` after changing `native/runtime_adapter.cc`.
 Java/UI/JNI-only changes use the normal Android Studio/Gradle build.
+
+`build-speech.sh` independently builds sherpa-onnx **1.13.8**, using its matched
+ONNX Runtime **1.28.2** Android binary. CPU ASR is explicitly selected; TTS and
+diarization are disabled. Prepared speech libraries and the matching C header
+live in `native/artifacts/speech/`. This build does not replace the G5 stack.
+Both native build scripts package upstream dependency/license notices. See
+[the speech runtime pins and checksums](docs/speech-recognition.md).
 
 ## Exact separate downloads
 
@@ -249,7 +272,8 @@ notification, and the app shows that actual permission state.
 
 ## Use the localhost API
 
-Select the model, scroll to **Local OpenAI API**, and press **Start server**.
+Select the chat model or import the speech model, scroll to **Local OpenAI API**,
+and press **Start server**.
 Keep **Require local API key** enabled and use **Copy key** to configure a
 trusted client. The model loads on the first request; **Load model** can
 initialize it beforehand. The server stays available while the Activity is
@@ -258,15 +282,17 @@ backgrounded.
 | Client setting | Default |
 | --- | --- |
 | OpenAI base URL | `http://127.0.0.1:8080/v1` |
-| Model ID | `gemma-4-E2B-it_Google_Tensor_G5` |
+| Chat model ID | `gemma-4-E2B-it_Google_Tensor_G5` |
+| Speech model ID | `sherpa-onnx-whisper-tiny` |
 | Authorization | `Bearer <copied-local-key>` |
-| Endpoints | `GET /v1/models`, `POST /v1/chat/completions` |
+| Endpoints | `GET /v1/models`, `POST /v1/chat/completions`, `POST /v1/audio/transcriptions` |
 
 Use `stream: true` for live SSE. Both UI and API requests use the same single
-inference slot; an overlap returns an OpenAI-style **429** error. Port, key,
+inference slot across chat and speech; an overlap returns an OpenAI-style **429** error. Port, key,
 and optional CORS settings persist and can be changed while the listener is
 stopped. **Stop server** cancels its active client request and retains the
-model for UI use. **Unload / Stop** stops both the server and engine.
+loaded models for UI use. **Unload / Stop** stops the server and drains/unloads
+both engines. Speech can be served without choosing or loading Gemma.
 
 **GrapheneOS upgrade:** allow **Network** under InferDroid's app permissions;
 localhost sockets require it. This permission was disabled when the milestone
@@ -278,8 +304,37 @@ other apps on the phone can reach loopback.
 
 See [local-api.md](docs/local-api.md) for supported text messages and sampling
 parameters, error behavior, limits, CORS, and complete `curl` examples through
-`adb forward tcp:18080 tcp:8080`. Audio, image input, tools, structured output,
-and `/v1/completions` are outside this milestone.
+`adb forward tcp:18080 tcp:8080`. File transcription uses multipart uploads;
+see [speech API parameters](docs/speech-recognition.md#openai-compatible-transcription-endpoint).
+Gemma multimodal audio/image input, TTS, tools, structured output, and
+`/v1/completions` are later work.
+
+## Use offline speech recognition
+
+Prepare and deploy the separate, approximately **99 MiB** Whisper model:
+
+```bash
+./scripts/prepare-speech-model.sh
+adb shell mkdir -p /sdcard/AIModels/sherpa-onnx-whisper-tiny
+adb push .deps/speech/models/sherpa-onnx-whisper-tiny/tiny-encoder.int8.onnx /sdcard/AIModels/sherpa-onnx-whisper-tiny/
+adb push .deps/speech/models/sherpa-onnx-whisper-tiny/tiny-decoder.int8.onnx /sdcard/AIModels/sherpa-onnx-whisper-tiny/
+adb push .deps/speech/models/sherpa-onnx-whisper-tiny/tiny-tokens.txt /sdcard/AIModels/sherpa-onnx-whisper-tiny/
+```
+
+In **Offline speech recognition**, tap **Import speech model folder** and select
+that folder. The app copies and checksum-verifies the three files in private
+storage; model weights stay out of the APK. Then **Choose audio file**, optionally
+enter `en` or `it` (empty detects language), and tap **Transcribe audio**.
+**Load speech** prepares it first; **Unload speech** releases only speech.
+The top **Cancel** and **Unload / Stop** also control active speech work.
+
+Input is limited to **25 MiB / 120 seconds**, with mono/stereo WAV and the
+device's supported compressed codecs. The API returns JSON, plain text, or
+verbose JSON with duration/language. Longer recordings use consecutive
+25-second chunks; words at boundaries can lose accuracy. Cancellation waits
+for the current native decode to drain. No microphone permission is required.
+See [speech-recognition.md](docs/speech-recognition.md) for hashes, licensing,
+supported parameters, codec limits, and a multipart `curl` example.
 
 ## UI Customization, Themes & Languages
 
@@ -357,14 +412,16 @@ python3 scripts/generate-icons.py
 ## Build and device verification
 
 Assembly and lint were rerun with JDK 21, Gradle 9.8.1 / AGP 9.4.1 /
-compile SDK 37 for milestone 3 on 2026-10-10.
+compile SDK 37 for milestone 4 on 2026-10-10.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
+- Independent ASR-only sherpa-onnx runtime built from pinned sources, with the
+  matching ONNX Runtime and license notices. The G5 stack remains pinned.
 - Java, CMake/JNI, debug APK assembly, and Android lint passed (0 errors).
-  Lint's two warnings are intentional arm64-only targeting and target API 36
-  below the newest platform. The native runtime versions remain pinned.
-- APK inspection confirmed exactly four arm64 native libraries and no
-  `.litertlm` model. The milestone 3 debug APK is approximately 16 MB.
+  Lint reports 12 warnings, including the existing theme/AppCompat resources,
+  dependency/catalog notices, arm64-only targeting, and target API 36.
+- APK inspection confirmed seven arm64 native libraries and no
+  `.litertlm`/`.onnx` model. The milestone 4 debug APK is 41.1 MB (39.2 MiB).
 - `adb install -r` succeeded on the connected Pixel 10. `MainActivity` launched
   successfully and its UI was inspected. Android confirmed extracted native
   libraries, arm64 ABI, and `libedgetpu_litert.so` in the app's vendor library
@@ -382,11 +439,19 @@ compile SDK 37 for milestone 3 on 2026-10-10.
   real 429 rejection, serving in the background, and native cancellation on
   client disconnect followed by successful reuse. NPU evidence remained the
   same. Measurements are in the verification record.
-- **Ten device instrumentation tests passed** for the original lifecycle,
+- **Milestone 4: real offline file transcription passed**, using the public
+  English test recordings distributed with the speech model. UI model import,
+  file selection, encoded formats, background serving, shared chat/speech 429,
+  disconnect cancellation/reuse, and the Gemma NPU/SSE regression were checked.
+  Full Unload / Stop released both engines and removed foreground status.
+- **Sixteen device instrumentation tests passed** for the original lifecycle,
   UTF-8 boundaries, authentication/validation, history/parameter translation,
   live streaming, UI/API contention, disconnect/recovery, CORS/port conflict,
-  and stop/restart/key rotation. They use a fake engine to control timing;
-  physical NPU execution was verified separately through the HTTP service.
+  stop/restart/key rotation, PCM/resampling/duration bounds, multipart validation,
+  transcription formats, cross-engine contention, speech cancellation/recovery,
+  and stopping during load/import. They use fake engines to control timing and
+  the real Java audio decoder; physical CPU ASR and NPU execution were verified
+  separately through the HTTP service.
 
 To rerun the lifecycle/API tests on a connected Android device, allow the
 GrapheneOS Network permission first, then:
@@ -399,7 +464,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
 ```
 
-Expected result: `Lifecycle/API tests: 10 passed, 0 failed.` The runner uses only
+Expected result: `Lifecycle/API tests: 16 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
 InferDroid afterward and press Run or Start server for a real NPU request.

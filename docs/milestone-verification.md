@@ -257,4 +257,131 @@ the matching `/tmp/inferdroid-m3-*.xml` UI captures. Keys were neither printed
 nor written to tracked artifacts. Third-party client apps still need individual
 compatibility testing; no claim is made for Agora, FitBuddy, or RPClient.
 
-Milestones 1, 2, and 3 are complete. Milestone 4 (local ASR) has not started.
+## Milestone 4 — passed, 2026-10-10
+
+Same Pixel 10 / GrapheneOS, Android API 37, arm64, 4096-byte pages. Independent
+speech engine: **sherpa-onnx 1.13.8**, matched **ONNX Runtime 1.28.2**, multilingual
+**Whisper tiny int8**, explicitly **CPU**, two runtime threads. The known-good
+LiteRT-LM / Google Tensor dispatch stack was retained unchanged.
+
+### Model and public recordings
+
+The host preparation script downloaded the pinned
+[official sherpa Whisper tiny archive](https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.tar.bz2).
+Its three int8 model/token files were pushed to
+`/sdcard/AIModels/sherpa-onnx-whisper-tiny/`, then imported using the actual
+Android folder picker. The app copied **103,609,903 bytes** into private storage
+and verified all three SHA-256 values. Import and the selected public audio URI
+survived app updates and the instrumentation process restart.
+
+Recordings came from that archive's `test_wavs/0.wav`, `1.wav`, and `8k.wav`,
+with its `trans.txt` as the reference. No user recordings were used. Recognition
+checks were English; Italian is supported by the multilingual model and language
+API but was not measured on an Italian recording.
+
+### Real CPU transcription
+
+These authenticated requests used the actual CPU recognizer through
+`POST /v1/audio/transcriptions`. Final installed APK measurements:
+
+| Input / options | Decoded duration | Host wall time | Result |
+| --- | --- | --- | --- |
+| `0.wav`, 16 kHz mono, `language=en`, verbose JSON; includes model initialization | 6.625 s | 1.409 s | HTTP 200; reference words matched, ignoring case/punctuation |
+| `8k.wav`, 8 kHz mono, automatic language, verbose JSON; retained model | 4.825 s | 0.462 s | HTTP 200; language `en`; proper name Hester Prynne misrecognized |
+| `1.wav`, 16 kHz mono, `language=en`, plain text, `whisper-1` alias | 16.715 s | 1.415 s | HTTP 200; recognizable transcript, including `parrot` for reference `parent` |
+
+The alias uses the same local tiny model. Duration is measured from decoded
+samples, including the 8 kHz resampling path. Timings include local HTTP and ADB
+forwarding overhead; these are functional checks, not controlled benchmarks.
+
+The same public `0.wav` was re-encoded on the host with FFmpeg to exercise real
+Android decoding. All returned HTTP 200 and recognizable reference text:
+
+| Encoding | Host wall time |
+| --- | --- |
+| MP3 | 2.173 s |
+| M4A / AAC | 1.351 s |
+| FLAC | 1.166 s |
+| Ogg / Vorbis | 2.160 s |
+| WebM / Opus | 3.583 s |
+
+A **33.125-second** WAV made by repeating the public recording exercised the
+25-second native chunk boundary. It completed in **4.207 s**, with the full
+decoded duration reported. All chunks were processed, but the tiny model added
+repeated text; this verifies long-input handling, not transcription accuracy.
+The app has no overlapping segmentation, VAD, timestamps, or confidence scores.
+
+The actual UI audio picker selected `0.wav`; **Transcribe audio** returned the
+reference text in **653 ms** with the model retained. A real HTTP transcription
+also completed while Home was pressed: Android reported `isForeground=true`,
+`specialUse`, and **`hasBound=false`**. Native CPU initialization evidence:
+
+```text
+sherpa-onnx 1.13.8 · ONNX Runtime CPU · Whisper tiny int8 initialized
+```
+
+### Shared admission, cancellation, and NPU regression
+
+- Concurrent actual speech requests returned **429 / engine_busy** after the
+  first upload was admitted. Disconnecting an active speech request discarded
+  its result; retries were rejected until the current native chunk drained.
+  Recovery including a new short transcription took **1.075 s**, reusing the
+  same CPU model. The gate intentionally remains occupied during that drain.
+- Speech during live Gemma generation and chat during a long speech request
+  both returned **429**. Disconnecting the chat stream reached native
+  cancellation, then speech succeeded in **0.920 s**, including its decoding.
+- With both models resident, a real NPU introduction completed in **5.695 s**
+  including Gemma load. The subsequent live SSE introduction delivered **43**
+  non-empty text chunks, first content at **0.250 s**, total **2.693 s**. Both
+  used 15 prefill and 44 decode tokens. Speech remained usable between them.
+- After the final build and instrumentation restart, real Gemma inference
+  passed again in **5.166 s**, including load, with the same 15 / 44 token
+  counts. Logs again showed `Found GoogleTensorOptions`, active Google Tensor
+  dispatch kernels, and SouthBound symbols resolved by `libedgetpu_litert.so`.
+  There was no CPU fallback; ASR CPU status remained separate from Gemma NPU.
+- **Stop server** closed the listener while both models stayed loaded.
+  **Unload / Stop** then logged both `Speech engine unloaded` and
+  `NPU engine unloaded`, removed foreground status, and left **zero model
+  mappings and descriptors**. The app was left visible with both engines
+  unloaded, port 8080, authentication enabled, and CORS off. The verified speech
+  bundle remains imported for the next run. Temporary ADB forwarding and
+  logcat captures were removed/stopped.
+
+### Final build and reproducible tests
+
+JDK **21.0.11**, Gradle **9.8.1**, AGP **9.4.1**, compile SDK **37**, and pinned
+NDK **r30-beta1** built the Java/JNI APK and test APK successfully. Android Studio
+build and `:app:lintDebug` passed; lint reported **0 errors, 12 warnings**, including
+existing theme/AppCompat, dependency/catalog, arm64-only and target-API notices.
+Both APKs were installed on the reference phone.
+
+The final platform instrumentation reports:
+
+```text
+Lifecycle/API tests: 16 passed, 0 failed.
+```
+
+The ten earlier lifecycle/chat cases passed again. Six new cases cover actual
+audio decoding, multipart validation, JSON/text/verbose responses and discovery,
+shared chat/speech contention, disconnect cancellation/recovery, and stopping
+during speech load/import. They use real loopback sockets, Android threading,
+the real Java decoder, and controlled test-only fake engines. Real native CPU
+ASR and Tensor G5 inference are established separately by the requests above.
+Reproduction commands and input limits are in the README and
+[speech guide](speech-recognition.md).
+
+Final debug APK: **41,120,585 bytes**; exactly seven arm64 libraries (the four
+original G5 libraries and three speech libraries), five generated speech
+license/provenance assets, and **no model weights**. SHA-256:
+
+```text
+13e6692a3fbbbf99f71642a29a87dd8446dbe27b11089fe13152a719a1696ee0
+```
+
+Temporary host evidence: `/tmp/inferdroid-m4-final-build.log`,
+`/tmp/inferdroid-m4-final-tests.log`, `/tmp/inferdroid-m4-real.log`,
+`/tmp/inferdroid-m4-backends.log`, and matching UI captures. Local API keys were
+neither printed nor written to tracked artifacts. Third-party app compatibility
+still needs per-client testing.
+
+Milestones 1, 2, 3, and 4 are complete. Milestone 5 (local TTS) has not started.

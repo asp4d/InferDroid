@@ -1,4 +1,4 @@
-InferDroid milestone 1 native runtime
+InferDroid native runtimes
 
 LiteRT-LM v0.14.0-alpha.0
 https://github.com/google-ai-edge/LiteRT-LM/tree/0b98b80e1d846af27d10b8ab395645119cb231e4
@@ -33,3 +33,25 @@ The vendor library is loaded from the physical Pixel through Android's linker.
 Build strategy reference:
 https://github.com/bejoyfuuul/litert-lm-tensor-g5-npu/tree/8f26b917dcd0dbe04f142f43a7c24f9141136d7f
 No executable from that project's release is used as InferDroid's engine.
+
+sherpa-onnx v1.13.8
+https://github.com/k2-fsa/sherpa-onnx/tree/v1.13.8
+Copyright Xiaomi Corporation and contributors. Apache License 2.0.
+Built from the pinned source archive with TTS and speaker diarization disabled.
+InferDroid's independent JNI wrapper uses its offline C API for CPU ASR.
+
+ONNX Runtime 1.28.2
+https://github.com/microsoft/onnxruntime/tree/v1.28.2
+Copyright Microsoft Corporation and contributors. MIT License.
+Android arm64 binary obtained from the sherpa-onnx maintainer's pinned archive:
+https://github.com/csukuangfj/onnxruntime-libs/releases/tag/v1.28.2
+The source build script packages the runtime's license and third-party notices,
+plus licenses available for sherpa-onnx's compiled dependencies, under
+generated/speech/. No TTS phonemizer or eSpeak library is included.
+
+Whisper
+https://github.com/openai/whisper/tree/v20250625
+Copyright OpenAI. MIT License.
+The separate Whisper tiny model bundle is exported/quantized by sherpa-onnx.
+Whisper weights and public test recordings are not included in the APK or Git.
+The upstream model license is retained under generated/speech/ for convenience.

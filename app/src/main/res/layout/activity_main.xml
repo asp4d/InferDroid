@@ -74,6 +74,33 @@
             android:layout_height="wrap_content" android:accessibilityLiveRegion="polite"
             android:textSize="16sp" android:paddingTop="8dp" android:paddingBottom="8dp" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:text="@string/speech_label" android:textStyle="bold" android:textSize="18sp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/speech_help" />
+        <Button android:id="@+id/import_speech_model" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/import_speech_model" />
+        <TextView android:id="@+id/speech_model_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/speech_model_missing" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" style="?android:attr/buttonBarStyle">
+            <Button android:id="@+id/load_speech_model" style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/load_speech_model" />
+            <Button android:id="@+id/unload_speech_model" style="?android:attr/buttonBarButtonStyle"
+                android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/unload_speech_model" />
+        </LinearLayout>
+        <Button android:id="@+id/choose_audio" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/choose_audio" />
+        <TextView android:id="@+id/audio_source" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/audio_not_selected" android:textIsSelectable="true" android:textSize="13sp" />
+        <EditText android:id="@+id/speech_language" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:hint="@string/speech_language" android:inputType="text"
+            android:maxLength="3" android:singleLine="true" android:importantForAutofill="no" />
+        <Button android:id="@+id/transcribe_audio" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/transcribe_audio" />
+        <TextView android:id="@+id/speech_status" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/speech_model_missing" android:accessibilityLiveRegion="polite" android:paddingTop="8dp" />
+        <TextView android:id="@+id/transcript" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textIsSelectable="true" android:textSize="17sp" android:minHeight="32dp" android:paddingTop="8dp" />
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="12dp" android:text="@string/server_label" android:textStyle="bold" android:textSize="18sp" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="@string/server_help" />

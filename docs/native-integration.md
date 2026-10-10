@@ -203,7 +203,9 @@ and requests foreground-service, notification, work-time wake-lock, and now
 the HTTP server binds only to `127.0.0.1` and makes no outbound requests.
 The wake lock is released between operations. `START_NOT_STICKY` means a
 process kill does not silently reinitialize the model or restart the listener.
-ASR/TTS, vision, image generation, and ToolManager remain future work.
+An independent ASR runtime is described in
+[speech-recognition.md](speech-recognition.md). TTS, Gemma multimodal input,
+vision, image generation, and ToolManager remain future work.
 
 Two milestone 1 APK runs and six milestone 2 service requests passed on
 2026-10-08, returning generated text to Java with matching dispatch-kernel and
@@ -215,3 +217,11 @@ Physical HTTP/SSE requests additionally passed on 2026-10-10, with incremental
 text, retained-engine history requests, output caps, background serving, and
 disconnect cancellation/recovery. See [local API details](local-api.md) and
 the milestone 3 section of the verification record.
+
+Milestone 4 adds a separate CMake JNI library using sherpa-onnx 1.13.8's
+offline C API and ONNX Runtime 1.28.2 on CPU. It shares only service ownership
+and admission with Gemma; it never calls LiteRT or changes the G5 pins. The
+APK adds three speech libraries and their license notices, without model
+weights. Real NPU chat/SSE passed again with both models loaded. Exact speech
+sources, archive/model hashes, and CPU/cancellation limits are documented in
+[speech-recognition.md](speech-recognition.md).

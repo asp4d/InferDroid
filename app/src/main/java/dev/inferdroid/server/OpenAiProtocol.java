@@ -230,8 +230,16 @@ final class OpenAiProtocol {
     }
 
     static JSONObject models() throws JSONException {
-        return new JSONObject().put("object", "list").put("data", new JSONArray().put(new JSONObject()
-                .put("id", MODEL).put("object", "model").put("created", 0).put("owned_by", "inferdroid")));
+        return models(true, false);
+    }
+    static JSONObject models(boolean chat, boolean speech) throws JSONException {
+        JSONArray models = new JSONArray();
+        if (chat) models.put(model(MODEL));
+        if (speech) models.put(model(dev.inferdroid.speech.SpeechModelStore.MODEL_ID));
+        return new JSONObject().put("object", "list").put("data", models);
+    }
+    private static JSONObject model(String id) throws JSONException {
+        return new JSONObject().put("id", id).put("object", "model").put("created", 0).put("owned_by", "inferdroid");
     }
 
     private static JSONObject base(String id, long created, boolean stream) throws JSONException {

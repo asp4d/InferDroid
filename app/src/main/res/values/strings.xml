@@ -12,7 +12,7 @@
     <string name="cancel">Cancel</string>
     <string name="notification_channel">Local inference</string>
     <string name="notification_channel_description">Status and controls while local inference or the localhost API is running.</string>
-    <string name="notification_title">InferDroid · Tensor G5 inference</string>
+    <string name="notification_title">InferDroid · Local inference</string>
     <string name="notifications_disabled">Notification permission is off. Android may hide the service notification; allow notifications in app settings to show it.</string>
     <string name="service_connecting">Connecting to inference service…</string>
     <string name="service_disconnected">Inference service disconnected. Reconnect and reload the model.</string>
@@ -38,6 +38,19 @@
     <string name="start_server">Start server</string>
     <string name="stop_server">Stop server</string>
     <string name="server_stopped">Local API stopped.</string>
+    <string name="speech_label">Offline speech recognition</string>
+    <string name="speech_help">Whisper tiny · multilingual · CPU. Import the verified speech model folder, then choose an audio file. Up to 25 MiB and 120 seconds. Audio stays on this device.</string>
+    <string name="import_speech_model">Import speech model folder</string>
+    <string name="speech_model_missing">Speech model not imported. See README for the model download.</string>
+    <string name="speech_model_ready">Whisper tiny int8 · multilingual model imported</string>
+    <string name="load_speech_model">Load speech</string>
+    <string name="unload_speech_model">Unload speech</string>
+    <string name="choose_audio">Choose audio file</string>
+    <string name="audio_not_selected">Choose an audio file to transcribe.</string>
+    <string name="audio_temporary">Audio selected for this launch. This provider did not grant persistent access.</string>
+    <string name="speech_language">Spoken language: en, it, or leave empty for detection</string>
+    <string name="speech_language_invalid">Use a supported Whisper language code such as en or it, or leave it empty.</string>
+    <string name="transcribe_audio">Transcribe audio</string>
 
     <!-- UI Settings -->
     <string name="ui_settings_title">UI Settings</string>

@@ -1,8 +1,9 @@
-# Inference service lifecycle — milestones 2 and 3
+# Inference service lifecycle — milestones 2–4
 
-`InferenceService` owns one `EngineManager`, one `GemmaInferenceEngine`, and
-an optional `OpenAiServer`. Opening the Activity only binds an unloaded
-service. Load model, Run, or Start server starts the foreground service;
+`InferenceService` owns the Gemma `EngineManager`, an independent speech
+`SpeechManager` / `SherpaSpeechEngine`, a shared `WorkGate`, and an optional
+`OpenAiServer`. Opening the Activity only binds an unloaded service.
+Chat/speech load or inference, speech import, or Start server starts the foreground service;
 it promotes itself before native work or HTTP listening.
 
 ```text
@@ -12,7 +13,7 @@ LOADING / READY / GENERATING -- Unload / Stop --> STOPPING --> UNLOADED
 ```
 
 A failed initialization returns to UNLOADED with diagnostics. The foreground
-service stops if no HTTP listener is running; an active listener remains
+service stops if no HTTP listener is running and speech is also unloaded; an active listener remains
 available for discovery and subsequent requests. The backend is Google Tensor NPU;
 there is no CPU retry. A loaded engine has not yet verified generation until
 its first successful request.
@@ -41,8 +42,8 @@ started loopback listener and the socket-required `INTERNET` permission.
 
 Start server keeps the service foreground even while the engine is unloaded.
 Stop server closes all client connections and cancels only its active request;
-an already loaded model stays available to the UI. Unload / Stop also closes
-the HTTP listener before draining and unloading the native engine. API
+already loaded models stay available to the UI. Unload / Stop also closes
+the HTTP listener before draining and unloading both native engines. API
 disconnect cancellation is scoped to its owning listener, and native
 cancellation snapshots the engine/request ID before entering the control
 executor. Delayed cancellation cannot affect the next request.
@@ -72,3 +73,31 @@ a fake backend. Measurements and native evidence are retained in
 Milestone 3 HTTP/SSE, background serving, and disconnect/recovery checks also
 passed on 2026-10-10. The expanded test runner covers ten lifecycle/API cases.
 See [local API details](local-api.md) and the milestone 3 verification record.
+
+## Independent speech lifecycle
+
+Speech starts UNLOADED. Import copies/checksums the tested Whisper bundle on
+the speech worker; it atomically replaces the private model directory and
+returns unloaded. Load speech or transcription transitions through LOADING
+to READY / TRANSCRIBING. Transcription keeps the model resident; Unload speech
+drains/releases only ASR. Full Unload / Stop waits for chat and speech cleanup
+before removing foreground state. Both engine workers use separate work-time
+wake locks; either retained engine or the listener keeps the service foreground.
+
+`WorkGate` admits one load/import/inference operation across both managers.
+Cleanup holds its owner's slot until it finishes; independent engines may
+drain together while all new work remains rejected. HTTP and UI speech requests
+share this gate with chat. A listener identity scopes disconnect cancellation
+and prevents stale clients from cancelling later operations.
+
+The speech worker decodes/resamples selected files or bounded in-memory uploads
+and calls sherpa's offline C API on CPU. Every request gets new stream state;
+Whisper decoding options can change without recreating model sessions.
+sherpa has no offline abort call: its current 25-second chunk must finish
+before cancellation discards the result. No model is freed during that call.
+Read/copy/audio conversion and subsequent chunks check the cancellation token.
+There is no microphone capture or foreground microphone permission.
+
+Sixteen lifecycle/API/audio tests and physical CPU ASR/NPU regression checks
+passed on 2026-10-10. See [speech setup and limits](speech-recognition.md) and
+[the verification record](milestone-verification.md).

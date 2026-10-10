@@ -43,6 +43,7 @@ public final class EngineManager {
 
     private final InferenceEngine engine;
     private final WorkGuard guard;
+    private final WorkGate gate;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(
             task -> new Thread(task, "InferDroid-engine"));
     private final ExecutorService control = Executors.newSingleThreadExecutor(
@@ -59,8 +60,13 @@ public final class EngineManager {
     private boolean closed;
 
     public EngineManager(InferenceEngine engine, WorkGuard guard) {
+        this(engine, guard, new WorkGate());
+    }
+
+    public EngineManager(InferenceEngine engine, WorkGuard guard, WorkGate gate) {
         this.engine = engine;
         this.guard = guard;
+        this.gate = gate;
     }
 
     public State getState() { return state; }
@@ -71,7 +77,7 @@ public final class EngineManager {
     public void detach(Listener listener) { listeners.remove(listener); }
 
     public boolean load(String source, boolean verbose) {
-        if (closed || state.busy) return false;
+        if (closed || state.busy || !gate.acquire(this)) return false;
         cancelled.set(false);
         if (!source.equals(engine.getModelSource())) verified = false;
         publish(Phase.LOADING, "Loading Gemma with Tensor G5 NPU requested…", null);
@@ -85,6 +91,7 @@ public final class EngineManager {
             GenerationResult completed = result;
             main.post(() -> {
                 if (stopping || closed) return;
+                gate.release(this);
                 publish(engine.isLoaded() ? Phase.READY : Phase.UNLOADED,
                         completed.success ? "Model loaded. Ready; it stays loaded between requests."
                                 : "Model load failed. See diagnostics; no CPU retry.", completed);
@@ -98,7 +105,7 @@ public final class EngineManager {
     }
 
     public boolean generate(GenerationRequest request, GenerationListener listener) {
-        if (closed || state.busy) {
+        if (closed || state.busy || !gate.acquire(this)) {
             Log.i("InferDroid", "Rejected request: engine is busy or stopping");
             return false;
         }
@@ -140,6 +147,7 @@ public final class EngineManager {
                             false, true, completed.text, "Inference service stopped."));
                     return;
                 }
+                gate.release(this);
                 if (completed.success) verified = true;
                 String status = completed.success
                         ? "Generated in " + elapsedMs + " ms. Model remains loaded on Tensor G5."
@@ -185,6 +193,7 @@ public final class EngineManager {
         if (onStopped != null) stoppedCallbacks.add(onStopped);
         if (stopping) return;
         stopping = true;
+        gate.hold(this);
         cancelled.set(true);
         Future<?> cancellation = cancelNative();
         publish(Phase.STOPPING, "Stopping active work and unloading the model…", state.result);
@@ -202,6 +211,7 @@ public final class EngineManager {
             main.post(() -> {
                 verified = false;
                 stopping = false;
+                gate.release(this);
                 publish(Phase.UNLOADED, completed == null
                         ? "Model unloaded. Inference service stopped." : "Unload failed; see diagnostics.", completed);
                 ArrayList<Runnable> callbacks = new ArrayList<>(stoppedCallbacks);
