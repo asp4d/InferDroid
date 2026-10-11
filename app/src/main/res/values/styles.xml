@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Base Light Theme -->
-    <style name="Theme.InferDroid.Base.Light" parent="Theme.AppCompat.Light.NoActionBar">
+    <style name="Theme.InferDroid.Base.Light" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
     </style>
 
     <!-- Base Dark Theme -->
-    <style name="Theme.InferDroid.Base.Dark" parent="Theme.AppCompat.NoActionBar">
+    <style name="Theme.InferDroid.Base.Dark" parent="Theme.MaterialComponents.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
     </style>
 
@@ -15,6 +15,16 @@
         <item name="android:windowBackground">@color/light_bg</item>
         <item name="android:colorBackground">@color/light_bg</item>
         <item name="colorSurface">@color/light_surface</item>
+        <item name="colorOnSurface">@color/light_text_primary</item>
+        <item name="colorSurfaceVariant">@color/light_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/light_text_secondary</item>
+        <item name="colorOutline">@color/light_stroke</item>
+        <item name="colorPrimary">@color/light_accent</item>
+        <item name="colorOnPrimary">@color/light_on_accent</item>
+        <item name="colorSecondary">@color/light_accent</item>
+        <item name="colorOnSecondary">@color/light_on_accent</item>
+        <item name="colorError">@color/light_red</item>
+        <item name="colorOnError">#FFFFFF</item>
         <item name="android:textColor">@color/light_text_primary</item>
         <item name="android:textColorPrimary">@color/light_text_primary</item>
         <item name="android:textColorSecondary">@color/light_text_secondary</item>
@@ -22,8 +32,6 @@
         <item name="android:editTextColor">@color/light_text_primary</item>
         <item name="android:textColorPrimaryInverse">@color/oled_text_primary</item>
         <item name="android:colorAccent">@color/light_accent</item>
-        <item name="colorPrimary">@color/light_accent</item>
-        <item name="colorSecondary">@color/light_accent</item>
         <item name="colorControlNormal">@color/light_text_secondary</item>
         <item name="colorControlActivated">@color/light_accent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -37,6 +45,16 @@
         <item name="android:windowBackground">@color/oled_bg</item>
         <item name="android:colorBackground">@color/oled_bg</item>
         <item name="colorSurface">@color/oled_surface</item>
+        <item name="colorOnSurface">@color/oled_text_primary</item>
+        <item name="colorSurfaceVariant">@color/oled_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/oled_text_secondary</item>
+        <item name="colorOutline">@color/oled_stroke</item>
+        <item name="colorPrimary">@color/oled_accent</item>
+        <item name="colorOnPrimary">@color/oled_on_accent</item>
+        <item name="colorSecondary">@color/oled_accent</item>
+        <item name="colorOnSecondary">@color/oled_on_accent</item>
+        <item name="colorError">@color/oled_red</item>
+        <item name="colorOnError">#000000</item>
         <item name="android:textColor">@color/oled_text_primary</item>
         <item name="android:textColorPrimary">@color/oled_text_primary</item>
         <item name="android:textColorSecondary">@color/oled_text_secondary</item>
@@ -44,8 +62,6 @@
         <item name="android:editTextColor">@color/oled_text_primary</item>
         <item name="android:textColorPrimaryInverse">@color/light_text_primary</item>
         <item name="android:colorAccent">@color/oled_accent</item>
-        <item name="colorPrimary">@color/oled_accent</item>
-        <item name="colorSecondary">@color/oled_accent</item>
         <item name="colorControlNormal">@color/oled_text_secondary</item>
         <item name="colorControlActivated">@color/oled_accent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -59,6 +75,16 @@
         <item name="android:windowBackground">@color/gruvbox_light_bg</item>
         <item name="android:colorBackground">@color/gruvbox_light_bg</item>
         <item name="colorSurface">@color/gruvbox_light_surface</item>
+        <item name="colorOnSurface">@color/gruvbox_light_text_primary</item>
+        <item name="colorSurfaceVariant">@color/gruvbox_light_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/gruvbox_light_text_secondary</item>
+        <item name="colorOutline">@color/gruvbox_light_stroke</item>
+        <item name="colorPrimary">@color/gruvbox_light_accent</item>
+        <item name="colorOnPrimary">@color/gruvbox_light_on_accent</item>
+        <item name="colorSecondary">@color/gruvbox_light_accent</item>
+        <item name="colorOnSecondary">@color/gruvbox_light_on_accent</item>
+        <item name="colorError">@color/gruvbox_light_red</item>
+        <item name="colorOnError">#fbf1c7</item>
         <item name="android:textColor">@color/gruvbox_light_text_primary</item>
         <item name="android:textColorPrimary">@color/gruvbox_light_text_primary</item>
         <item name="android:textColorSecondary">@color/gruvbox_light_text_secondary</item>
@@ -66,8 +92,6 @@
         <item name="android:editTextColor">@color/gruvbox_light_text_primary</item>
         <item name="android:textColorPrimaryInverse">@color/gruvbox_dark_text_primary</item>
         <item name="android:colorAccent">@color/gruvbox_light_accent</item>
-        <item name="colorPrimary">@color/gruvbox_light_accent</item>
-        <item name="colorSecondary">@color/gruvbox_light_accent</item>
         <item name="colorControlNormal">@color/gruvbox_light_text_secondary</item>
         <item name="colorControlActivated">@color/gruvbox_light_accent</item>
         <item name="android:windowLightStatusBar">true</item>
@@ -81,6 +105,16 @@
         <item name="android:windowBackground">@color/gruvbox_dark_bg</item>
         <item name="android:colorBackground">@color/gruvbox_dark_bg</item>
         <item name="colorSurface">@color/gruvbox_dark_surface</item>
+        <item name="colorOnSurface">@color/gruvbox_dark_text_primary</item>
+        <item name="colorSurfaceVariant">@color/gruvbox_dark_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/gruvbox_dark_text_secondary</item>
+        <item name="colorOutline">@color/gruvbox_dark_stroke</item>
+        <item name="colorPrimary">@color/gruvbox_dark_accent</item>
+        <item name="colorOnPrimary">@color/gruvbox_dark_on_accent</item>
+        <item name="colorSecondary">@color/gruvbox_dark_accent_secondary</item>
+        <item name="colorOnSecondary">@color/gruvbox_dark_on_accent</item>
+        <item name="colorError">@color/gruvbox_dark_red</item>
+        <item name="colorOnError">#1d2021</item>
         <item name="android:textColor">@color/gruvbox_dark_text_primary</item>
         <item name="android:textColorPrimary">@color/gruvbox_dark_text_primary</item>
         <item name="android:textColorSecondary">@color/gruvbox_dark_text_secondary</item>
@@ -88,8 +122,6 @@
         <item name="android:editTextColor">@color/gruvbox_dark_text_primary</item>
         <item name="android:textColorPrimaryInverse">@color/gruvbox_light_text_primary</item>
         <item name="android:colorAccent">@color/gruvbox_dark_accent</item>
-        <item name="colorPrimary">@color/gruvbox_dark_accent</item>
-        <item name="colorSecondary">@color/gruvbox_dark_accent</item>
         <item name="colorControlNormal">@color/gruvbox_dark_text_secondary</item>
         <item name="colorControlActivated">@color/gruvbox_dark_accent</item>
         <item name="android:windowLightStatusBar">false</item>
@@ -100,4 +132,47 @@
 
     <!-- Alias for default application theme -->
     <style name="AppTheme" parent="Theme.InferDroid.Light" />
+
+    <!-- Button Styles with Visible Borders -->
+    <style name="AppButton.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">?attr/colorPrimary</item>
+        <item name="android:textColor">?attr/colorOnPrimary</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">14sp</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="strokeColor">?attr/colorOutline</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="AppButton.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="backgroundTint">?attr/colorSurfaceVariant</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">14sp</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="strokeColor">?attr/colorOutline</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="AppButton.Danger" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="backgroundTint">?attr/colorSurfaceVariant</item>
+        <item name="android:textColor">?attr/colorError</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textSize">14sp</item>
+        <item name="cornerRadius">10dp</item>
+        <item name="strokeColor">?attr/colorError</item>
+        <item name="strokeWidth">1.5dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
 </resources>

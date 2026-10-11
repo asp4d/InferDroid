@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/settings_content"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -8,15 +9,22 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="16dp">
 
-        <!-- Top Header Bar -->
+        <!-- Standard Top Header Bar (Not in a Card) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="12dp">
 
             <ImageButton
                 android:id="@+id/btn_back"
@@ -25,6 +33,7 @@
                 android:padding="12dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_arrow_back"
+                app:tint="?attr/colorOnSurface"
                 android:contentDescription="@string/back" />
 
             <TextView
@@ -33,127 +42,174 @@
                 android:text="@string/ui_settings_title"
                 android:textSize="22sp"
                 android:textStyle="bold"
+                android:textColor="?attr/colorOnSurface"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
-        <!-- Section 1: App Theme -->
-        <TextView
+        <!-- Section 1: App Theme Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/theme_section_title"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1.5dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
 
-        <TextView
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_section_title"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorOnSurface" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_section_help"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:layout_marginBottom="12dp" />
+
+                <RadioGroup
+                    android:id="@+id/theme_radio_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <RadioButton
+                        android:id="@+id/radio_theme_light"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_light"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio_theme_oled_dark"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_oled_dark"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio_theme_auto"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_auto"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio_theme_gruvbox_light"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_gruvbox_light"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio_theme_gruvbox_dark"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_gruvbox_dark"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+
+                    <RadioButton
+                        android:id="@+id/radio_theme_auto_gruvbox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/theme_auto_gruvbox"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+                </RadioGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Section 2: Language Card -->
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/theme_section_help"
-            android:textSize="14sp"
-            android:textColor="?android:attr/textColorSecondary"
-            android:layout_marginBottom="8dp" />
+            android:layout_marginBottom="12dp"
+            app:cardBackgroundColor="?attr/colorSurface"
+            app:strokeColor="?attr/colorOutline"
+            app:strokeWidth="1.5dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
 
-        <RadioGroup
-            android:id="@+id/theme_radio_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <RadioButton
-                android:id="@+id/radio_theme_light"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/theme_light"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                android:orientation="vertical"
+                android:padding="14dp">
 
-            <RadioButton
-                android:id="@+id/radio_theme_oled_dark"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_oled_dark"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/language_section_title"
+                    android:textSize="17sp"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorOnSurface" />
 
-            <RadioButton
-                android:id="@+id/radio_theme_auto"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_auto"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/language_section_help"
+                    android:textSize="13sp"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:layout_marginBottom="12dp" />
 
-            <RadioButton
-                android:id="@+id/radio_theme_gruvbox_light"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_gruvbox_light"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                <RadioGroup
+                    android:id="@+id/language_radio_group"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
-            <RadioButton
-                android:id="@+id/radio_theme_gruvbox_dark"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_gruvbox_dark"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
+                    <RadioButton
+                        android:id="@+id/radio_lang_system"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/language_system"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
 
-            <RadioButton
-                android:id="@+id/radio_theme_auto_gruvbox"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_auto_gruvbox"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
-        </RadioGroup>
+                    <RadioButton
+                        android:id="@+id/radio_lang_en"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/language_en"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
 
-        <!-- Section 2: Language -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/language_section_title"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_marginTop="24dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/language_section_help"
-            android:textSize="14sp"
-            android:textColor="?android:attr/textColorSecondary"
-            android:layout_marginBottom="8dp" />
-
-        <RadioGroup
-            android:id="@+id/language_radio_group"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <RadioButton
-                android:id="@+id/radio_lang_system"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/language_system"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
-
-            <RadioButton
-                android:id="@+id/radio_lang_en"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/language_en"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
-
-            <RadioButton
-                android:id="@+id/radio_lang_it"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/language_it"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp" />
-        </RadioGroup>
+                    <RadioButton
+                        android:id="@+id/radio_lang_it"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/language_it"
+                        android:textColor="?attr/colorOnSurface"
+                        android:paddingTop="10dp"
+                        android:paddingBottom="10dp" />
+                </RadioGroup>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>
 </ScrollView>

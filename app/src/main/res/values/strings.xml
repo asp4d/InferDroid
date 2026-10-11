@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">InferDroid</string>
+    <string name="app_subtitle">Local AI &amp; Audio Suite</string>
+    <string name="llm_section_title">LLM Inference Model</string>
+    <string name="prompt_section_title">Prompt &amp; Vision Input</string>
     <string name="backend_label">Gemma 4 E2B · Tensor G5 NPU requested</string>
     <string name="model_help">Select gemma-4-E2B-it_Google_Tensor_G5.litertlm from AIModels/litert-npu. The model stays on the device.</string>
     <string name="choose_model">Choose model</string>
