@@ -44,6 +44,7 @@ import org.json.JSONObject;
 public final class OpenAiServer implements AutoCloseable {
     public static final String MODEL_ID = OpenAiProtocol.MODEL;
     private static final int MAX_BODY = 256 * 1024;
+    private static final int MAX_CHAT_BODY = 6 * 1024 * 1024;
     private static final int MAX_HEADERS = 16 * 1024;
     private static final int REQUEST_TIMEOUT_SECONDS = 10 * 60;
     private final ServerConfig config;
@@ -182,7 +183,9 @@ public final class OpenAiServer implements AutoCloseable {
                 throw new ApiError(411, "Supply a valid Content-Length.", "invalid_request_error", "length_required", null);
             }
             long bodySize = Long.parseLong(length);
-            if (bodySize > MAX_BODY) throw new ApiError(413, "Request body exceeds 256 KiB.", "invalid_request_error", "request_too_large", null);
+            int bodyLimit = path.equals("/v1/chat/completions") ? MAX_CHAT_BODY : MAX_BODY;
+            if (bodySize > bodyLimit) throw new ApiError(413, "Request body exceeds "
+                    + (bodyLimit == MAX_CHAT_BODY ? "6 MiB for chat." : "256 KiB."), "invalid_request_error", "request_too_large", null);
             byte[] bytes = new byte[(int) bodySize];
             int offset = 0;
             while (offset < bytes.length) {

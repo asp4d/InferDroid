@@ -5,15 +5,15 @@
 # InferDroid
 
 A native **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
-E2B NPU path, **offline speech recognition** with multilingual Whisper tiny,
+E2B NPU path with **local image understanding**, **offline speech recognition** with multilingual Whisper tiny,
 and **offline text to speech** with Supertonic 3 int8. The independent audio
 engines use sherpa-onnx on CPU. A Java foreground service retains the
 models between requests and serves an authenticated **OpenAI-compatible
-localhost API**, including live chat SSE, audio-file transcription, and WAV/PCM
+localhost API**, including text/image chat with live SSE, audio-file transcription, and WAV/PCM
 speech synthesis. The UI shows generated text, speech transcripts, audio preview/export,
 backend status, model/server controls,
 native diagnostics, and customizable themes and languages. Work runs off the
-UI thread and shares one active-work slot. Vision, image generation, and
+UI thread and shares one active-work slot. Image generation and
 network tools are later work.
 
 **Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
@@ -58,9 +58,26 @@ busy responses, cancellation/reuse, and duration limits passed. All twenty
 instrumentation tests and the Gemma NPU/SSE regression passed.
 See [TTS setup, licensing, and API limits](docs/tts.md).
 
+**Milestone 6 passed on the same device on 2026-10-11.** Attach a PNG, JPEG, or
+WebP image in the UI, or send base64 `image_url` parts to the chat endpoint.
+Real image distinctions, printed-text reading, multiple images, history,
+live SSE, cancellation/reuse, and audio regressions passed. The measured G5
+package uses **NPU language generation and an NPU vision encoder**, with a
+**CPU vision adapter and image preprocessing**. Its already compiled encoder
+dispatches to the NPU even with the runtime's CPU vision option; graph checks
+and device evidence establish this arrangement. All 25 instrumentation tests
+passed. See [image setup, API examples, and limits](docs/image-understanding.md).
+
+The adapter's CPU execution follows the pinned runtime and model package
+support. Even its `Backend::NPU` adapter branch selects CPU execution.
+**CPU versus NPU adapter performance has not been measured on the Pixel 10.**
+See [why the vision adapter uses CPU](docs/image-understanding.md#why-the-vision-adapter-uses-cpu)
+for the performance tradeoffs and the comparison needed to establish which is faster.
+
 Read [the original handoff](pixel_local_ai_server_codex_handoff.md),
 [the verified native strategy](docs/native-integration.md), and
-[speech recognition](docs/speech-recognition.md) and [TTS setup](docs/tts.md) for exact source APIs,
+[speech recognition](docs/speech-recognition.md), [TTS setup](docs/tts.md), and
+[image understanding](docs/image-understanding.md) for exact source APIs,
 hashes, storage decisions, and licensing notes.
 
 ## Acknowledgements & Development
@@ -258,6 +275,9 @@ failure; choose the local file through the system Files provider instead.
    service status and controls can be displayed.
 3. Leave `Hello, briefly introduce yourself.` as the prompt and tap **Run**.
    Requests are serialized; another Run is disabled while work is active.
+   For image input, tap **Attach image**, select a PNG/JPEG/WebP still image
+   up to 2 MiB, and ask about its contents. **Clear image** returns to text-only
+   requests. Images stay local and Gemma replies with text; no extra model is needed.
 4. The model stays loaded after generation. You can leave the Activity and
    return to its current status/output while the foreground service runs.
 5. **Cancel** requests cancellation of generation through upstream
@@ -460,6 +480,7 @@ python3 scripts/generate-icons.py
 
 Assembly and lint were rerun with JDK 21, Gradle 9.8.1 / AGP 9.4.1 /
 compile SDK 37 for milestone 5 on 2026-10-11.
+The same toolchain passed milestone 6, including the rebuilt vision adapter.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
 - Independent ASR/Supertonic sherpa-onnx runtime built from pinned sources, with the
@@ -468,7 +489,7 @@ compile SDK 37 for milestone 5 on 2026-10-11.
   Lint reports 12 warnings, including the existing theme/AppCompat resources,
   dependency/catalog notices, arm64-only targeting, and target API 36.
 - APK inspection confirmed seven arm64 native libraries and no
-  `.litertlm`/`.onnx` model. The milestone 5 debug APK is 44.1 MB (42.1 MiB).
+  `.litertlm`/`.onnx` model. The milestone 6 debug APK is approximately 54.5 MB (52 MiB).
 - `adb install -r` succeeded on the connected Pixel 10. `MainActivity` launched
   successfully and its UI was inspected. Android confirmed extracted native
   libraries, arm64 ABI, and `libedgetpu_litert.so` in the app's vendor library
@@ -497,15 +518,22 @@ compile SDK 37 for milestone 5 on 2026-10-11.
   the 120-second output limit. Slow chunks are split before exceeding native
   positional capacity; errors stay inside the C boundary. All three models
   stayed resident during the NPU/SSE regression, then full unload released them.
-- **Twenty device instrumentation tests passed** for the original lifecycle,
+- **Milestone 6: real Gemma image understanding passed**, including the SAF
+  picker, PNG/JPEG/WebP input, printed text, distinct/multiple images, image
+  history, SSE, disconnect recovery, and shared TTS admission. Existing text
+  NPU and CPU ASR/TTS remained available with all models resident. Full unload
+  released the vision models together with the language engine.
+- **Twenty-five device instrumentation tests passed** for the original lifecycle,
   UTF-8 boundaries, authentication/validation, history/parameter translation,
   live streaming, UI/API contention, disconnect/recovery, CORS/port conflict,
   stop/restart/key rotation, PCM/resampling/duration bounds, multipart validation,
   transcription formats, cross-engine contention, speech cancellation/recovery,
   stopping during load/import, TTS validation/voice/Unicode translation,
   WAV/PCM output, duration-limit errors/reuse, TTS busy/disconnect ownership,
-  and stopping during TTS load/import. They use fake engines to control timing and
-  the real Java audio decoder; physical CPU ASR/TTS and NPU execution were verified
+  stopping during TTS load/import, image decoding/EXIF/normalization, image
+  validation/limits, ordered multimodal history, image SSE, and image disconnect
+  ownership. They use fake engines to control timing and the real Android
+  audio/image decoders; physical CPU ASR/TTS and NPU execution were verified
   separately through the HTTP service.
 
 To rerun the lifecycle/API tests on a connected Android device, allow the

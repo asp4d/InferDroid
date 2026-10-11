@@ -1,4 +1,4 @@
-# Local OpenAI API — milestones 3–5
+# Local OpenAI API — milestones 3–6
 
 `InferenceService` owns an optional `OpenAiServer` listening **only on
 127.0.0.1**, initially port **8080**. The server has no LAN bind setting and
@@ -76,13 +76,13 @@ limit DNS rebinding. CORS does not replace authentication.
 The wire format follows the official
 [Chat Completions schema](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
 and [streamed chunks](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events).
-Chat implements the following text subset; independent audio contracts and
+Chat implements the following text/image subset; independent audio contracts and
 examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.md).
 
 | Endpoint | Behavior |
 | --- | --- |
 | `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic models, including while unloaded; unconfigured engines are omitted |
-| `POST /v1/chat/completions` | One completion, or incremental SSE when `stream: true` |
+| `POST /v1/chat/completions` | Text/image input, one text completion or incremental SSE when `stream: true` |
 | `POST /v1/audio/transcriptions` | Offline CPU file transcription; multipart, JSON/text/verbose JSON response |
 | `POST /v1/audio/speech` | Offline CPU TTS; JSON request, buffered 24 kHz mono PCM16 WAV/raw PCM response |
 | `OPTIONS` on any endpoint | CORS preflight when CORS is enabled |
@@ -90,7 +90,14 @@ examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.
 Requests must specify the exact model ID and 1–128 messages ending in a user
 turn. Roles are `user`, `assistant`, and leading `system` instructions;
 leading `developer` instructions map to `system`. Content accepts a text
-string or an array of `{"type":"text","text":"..."}` parts. Optional
+string or an array of `{"type":"text","text":"..."}` parts and, for user
+turns, `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}`
+parts. PNG/JPEG/WebP still images are decoded and normalized locally. Up to
+four images across the conversation are accepted, limited to 2 MiB each,
+4 MiB total before base64, 16 megapixels, and 8192 pixels per side. Remote URLs
+and API file paths return 400; `detail` must be `auto` or omitted.
+See [image understanding](image-understanding.md) for examples, lifecycle,
+normalization, and the measured NPU encoder/CPU adapter arrangement. Optional
 message `name` fields are accepted as metadata and are not passed to Gemma.
 The entire supplied history reaches LiteRT-LM's model chat template; it is
 not flattened into a last-message prompt. Each request creates a fresh
@@ -114,7 +121,7 @@ apply to sampling values. Compatibility defaults `tools: []`,
 `tool_choice: "none"`, `response_format: {"type":"text"}`, zero
 frequency/presence penalties, and `logprobs: false` are also accepted.
 Other parameters, tool calls, stop sequences, log probabilities, structured
-output, image/audio content, and multiple candidates receive explicit errors.
+output, inline audio content, and multiple candidates receive explicit errors.
 
 Non-streaming responses contain `id`, `object: "chat.completion"`, `created`,
 `model`, and one assistant message in `choices`. `finish_reason` is `stop`,
@@ -151,7 +158,8 @@ The transport uses HTTP/1.1 with one request per connection and
 clients should stop at `[DONE]`. Incoming chunked bodies, Expect handshakes,
 and HTTP pipelining are unsupported.
 
-Limits: 256 KiB chat/TTS JSON bodies, audio uploads up to 25 MiB plus 16 KiB
+Limits: 6 MiB chat JSON including base64 images, 256 KiB total chat text,
+256 KiB TTS JSON, audio uploads up to 25 MiB plus 16 KiB
 multipart metadata, 16 KiB total HTTP headers, 8 KiB header lines,
 64 headers, 32 JSON nesting levels, four HTTP workers plus eight pending
 connections, and bounded streaming buffers. Header/body intake has a
@@ -173,7 +181,7 @@ wrong token, 403 for forbidden Host/Origin, 404 for an endpoint/model not found,
 500 for cancellation or inference failure, and 503 for an unconfigured model.
 Native details stay in the app's
 diagnostics and logcat; failed NPU work never triggers a CPU retry. The server
-does not log request bodies, bearer tokens, prompts, audio, or transcripts.
+does not log request bodies, bearer tokens, prompts, images, audio, or transcripts.
 
 ## Host smoke test through ADB
 

@@ -95,4 +95,10 @@
     <string name="language_en">Inglese</string>
     <string name="language_it">Italiano</string>
     <string name="back">Indietro</string>
+    <string name="choose_image">Allega immagine</string>
+    <string name="vision_backend">Visione: NPU G5 + adattatore CPU</string>
+    <string name="native_backend_format">%1$s · %2$s</string>
+    <string name="clear_image">Rimuovi immagine</string>
+    <string name="image_not_selected">Nessuna immagine allegata</string>
+    <string name="image_help">Immagine PNG, JPEG o WebP facoltativa, non animata (fino a 2 MiB). Le immagini sono ridimensionate localmente; Gemma risponde con testo.</string>
 </resources>

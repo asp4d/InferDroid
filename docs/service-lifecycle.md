@@ -1,4 +1,4 @@
-# Inference service lifecycle — milestones 2–5
+# Inference service lifecycle — milestones 2–6
 
 `InferenceService` owns the Gemma `EngineManager`, an independent speech
 `SpeechManager` / `SherpaSpeechEngine`, a separate `TtsManager` / `SherpaTtsEngine`,
@@ -101,6 +101,27 @@ There is no microphone capture or foreground microphone permission.
 
 Sixteen lifecycle/API/audio tests and physical CPU ASR/NPU regression checks
 passed on 2026-10-10. See [speech setup and limits](speech-recognition.md) and
+[the verification record](milestone-verification.md).
+
+## Image requests in the Gemma lifecycle
+
+Milestone 6 keeps image requests inside `EngineManager`; there is no fourth
+manager or separate image work queue. The G5 package's AOT vision encoder
+uses NPU dispatch and its vision adapter uses CPU. Both are initialized with
+the language engine, retained between requests, and released on Gemma unload.
+Text-only requests disable vision in their fresh conversation.
+
+The HTTP workers validate and normalize bounded image data before admission;
+the engine worker reads/normalizes an explicitly selected UI document. Ordered
+image/text parts and history reach LiteRT-LM as in-memory PNG attachments.
+No temporary image files or client-controlled native paths are used. Request
+references survive until native work and callbacks drain, including on failure
+or disconnect. Clearing the UI selection removes its document URI.
+
+Images share the existing chat/ASR/TTS 429 gate, request-owner cancellation,
+foreground-service lifetime, and work-time wake lock. Twenty-five device tests
+and real image/NPU/audio regression checks passed. See
+[image handling and limits](image-understanding.md) and
 [the verification record](milestone-verification.md).
 
 ## Independent TTS lifecycle

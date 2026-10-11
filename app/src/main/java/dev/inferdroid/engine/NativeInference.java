@@ -8,6 +8,7 @@ import java.nio.charset.CodingErrorAction;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONException;
+import java.io.IOException;
 
 final class NativeInference {
     static { System.loadLibrary("inferdroid_jni"); }
@@ -26,11 +27,25 @@ final class NativeInference {
     }
 
     static GenerationResult generate(long handle, long requestId, GenerationRequest request,
-                                     GenerationListener listener) throws JSONException {
+                                     GenerationListener listener) throws JSONException, IOException {
         JSONArray turns = new JSONArray();
+        int imageCount = 0;
+        int imageBytes = 0;
         for (ChatMessage message : request.messages) {
-            turns.put(new JSONObject().put("role", message.role).put("content",
-                    new JSONArray().put(new JSONObject().put("type", "text").put("text", message.text))));
+            JSONArray content = new JSONArray();
+            for (ChatPart part : message.parts) {
+                if (!part.isImage()) {
+                    content.put(new JSONObject().put("type", "text").put("text", part.text));
+                } else {
+                    ImageInput image = part.image != null ? part.image : ImageInput.read(part.source);
+                    imageBytes += image.sourceBytes;
+                    if (++imageCount > ImageInput.MAX_IMAGES || imageBytes > ImageInput.MAX_TOTAL_BYTES) {
+                        throw new IOException("Supply at most four images totaling at most 4 MiB.");
+                    }
+                    content.put(new JSONObject().put("type", "image").put("blob", image.base64Png()));
+                }
+            }
+            turns.put(new JSONObject().put("role", message.role).put("content", content));
         }
         JSONObject payload = new JSONObject().put("messages", turns)
                 .put("max_output_tokens", request.maxOutputTokens);

@@ -25,11 +25,14 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "nlohmann/json.hpp"
+#include "litert/c/litert_model.h"
+#include "runtime/components/model_resources.h"
 #include "runtime/conversation/conversation.h"
 #include "runtime/engine/engine_factory.h"
 #include "runtime/engine/engine_settings.h"
 #include "runtime/executor/executor_settings_base.h"
 #include "runtime/executor/llm_executor_settings.h"
+#include "runtime/executor/litert_compiled_model_executor_utils.h"
 #include "runtime/util/logging.h"
 #include "runtime/util/scoped_file.h"
 
@@ -165,6 +168,55 @@ absl::Status VerifyLibraries(const RuntimeEngine& runtime,
   return absl::OkStatus();
 }
 
+// A CPU option does not turn an AOT DISPATCH_OP graph into CPU inference.
+// Verify the selected package's actual graphs before labeling its backend.
+absl::Status VerifyVisionGraphs(const litert::lm::ModelAssets& assets,
+                               std::ostringstream& diagnostics) {
+  using namespace litert::lm;
+  auto resources = BuildLiteRtCompiledModelResources(assets);
+  if (!resources.ok()) return resources.status();
+  for (const auto type : {ModelType::kTfLiteVisionEncoder, ModelType::kTfLiteVisionAdapter}) {
+    const bool encoder = type == ModelType::kTfLiteVisionEncoder;
+    auto model = (*resources)->GetTFLiteModel(type);
+    if (!model.ok()) return model.status();
+    if (!*model) return absl::FailedPreconditionError("Selected package has no vision model.");
+    LiteRtParamIndex graphs = 0;
+    if (LiteRtGetNumModelSubgraphs((*model)->Get(), &graphs) != kLiteRtStatusOk || graphs < 1 || graphs > 32) {
+      return absl::FailedPreconditionError("Cannot inspect the selected vision graphs.");
+    }
+    for (LiteRtParamIndex i = 0; i < graphs; ++i) {
+      LiteRtSubgraph graph = nullptr;
+      LiteRtParamIndex count = 0;
+      const char* name = nullptr;
+      if (LiteRtGetModelSubgraph((*model)->Get(), i, &graph) != kLiteRtStatusOk ||
+          LiteRtGetNumSubgraphOps(graph, &count) != kLiteRtStatusOk || count < 1 || count > 8192 ||
+          LiteRtGetSubgraphName(graph, &name) != kLiteRtStatusOk) {
+        return absl::FailedPreconditionError("Cannot inspect the selected vision subgraph.");
+      }
+      for (LiteRtParamIndex j = 0; j < count; ++j) {
+        LiteRtOp op = nullptr;
+        LiteRtOpCode code;
+        const char* custom = nullptr;
+        if (LiteRtGetSubgraphOp(graph, j, &op) != kLiteRtStatusOk || LiteRtGetOpCode(op, &code) != kLiteRtStatusOk) {
+          return absl::FailedPreconditionError("Cannot inspect a vision operator.");
+        }
+        if (code == kLiteRtOpCodeTflCustom && LiteRtGetCustomCode(op, &custom) != kLiteRtStatusOk) {
+          return absl::FailedPreconditionError("Cannot inspect a custom vision operator.");
+        }
+        if ((encoder && (count != 1 || !custom || std::strcmp(custom, "DISPATCH_OP") != 0)) ||
+            (!encoder && code == kLiteRtOpCodeTflCustom)) {
+          return absl::FailedPreconditionError(
+              "Expected the Tensor G5 package's AOT NPU vision encoder and builtin CPU adapter. Select gemma-4-E2B-it_Google_Tensor_G5.litertlm.");
+        }
+      }
+      diagnostics << (encoder ? "Vision encoder graph: " : "Vision adapter graph: ")
+                  << (name ? name : "") << "; " << count << " operators; "
+                  << (encoder ? "AOT NPU DISPATCH_OP" : "CPU builtins") << '\n';
+    }
+  }
+  return absl::OkStatus();
+}
+
 absl::StatusOr<std::shared_ptr<RuntimeEngine>> Load(int fd, const char* path,
     const char* library_dir, const char* cache_dir, bool verbose,
     std::ostringstream& diagnostics) {
@@ -195,11 +247,18 @@ absl::StatusOr<std::shared_ptr<RuntimeEngine>> Load(int fd, const char* path,
     diagnostics << "Model path: " << path << '\n';
   }
   if (!assets.ok()) return assets.status();
-  auto settings = EngineSettings::CreateDefault(std::move(*assets), Backend::NPU);
+  // The pinned CPU vision option handles builtin ops. The G5 encoder already
+  // contains AOT NPU dispatch graphs, which LiteRT delegates independently of
+  // this option. It does not run the compiled encoder on CPU.
+  auto settings = EngineSettings::CreateDefault(std::move(*assets), Backend::NPU, Backend::CPU);
   if (!settings.ok()) return settings.status();
   auto& executor_settings = settings->GetMutableMainExecutorSettings();
   executor_settings.SetLitertDispatchLibDir(library_dir);
   executor_settings.SetCacheDir(cache_dir);
+  settings->GetMutableVisionExecutorSettings()->SetCacheDir(cache_dir);
+  diagnostics << "Vision runtime option: CPU; AOT encoder uses NPU dispatch; adapter uses CPU.\n";
+  auto vision_graphs = VerifyVisionGraphs(settings->GetVisionExecutorSettings()->GetModelAssets(), diagnostics);
+  if (!vision_graphs.ok()) return vision_graphs;
   settings->GetMutableBenchmarkParams() = proto::BenchmarkParams();
 
   diagnostics << "Creating NPU engine...\n";
@@ -207,12 +266,16 @@ absl::StatusOr<std::shared_ptr<RuntimeEngine>> Load(int fd, const char* path,
   const auto init_start = std::chrono::steady_clock::now();
   auto engine = EngineFactory::CreateDefault(std::move(*settings));
   if (!engine.ok()) return engine.status();
-  diagnostics << "Engine init: " << std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::steady_clock::now() - init_start).count() << " ms\n";
-
   auto runtime = std::make_shared<RuntimeEngine>();
   runtime->engine = std::move(*engine);
   runtime->dispatch_path = dispatch_path;
+  auto vision = runtime->engine->GetVisionExecutorProperties();
+  if (!vision.ok()) return vision.status();
+  diagnostics << "Engine initialization (language and vision): "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                  std::chrono::steady_clock::now() - init_start).count() << " ms\n"
+              << "AOT NPU vision encoder and CPU adapter initialized from the selected package.\n"
+              << "Vision properties: " << *vision << '\n';
   auto verified = VerifyLibraries(*runtime, diagnostics);
   if (!verified.ok()) return verified;
   diagnostics << "NPU engine initialized and retained. Execution is verified after a successful request.\n";
@@ -248,8 +311,20 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
   if (request.is_discarded() || !request.is_object() || !request.contains("messages") ||
       !request["messages"].is_array() || request["messages"].empty() ||
       !request.contains("max_output_tokens") || !request["max_output_tokens"].is_number_integer()) {
-    return absl::InvalidArgumentError("Invalid internal text request.");
+    return absl::InvalidArgumentError("Invalid internal chat request.");
   }
+  int images = 0;
+  for (const auto& message : request["messages"]) {
+    if (message.contains("content") && message["content"].is_array()) {
+      for (const auto& part : message["content"]) {
+        if (part.value("type", "") == "image") ++images;
+      }
+    }
+  }
+  if (images > 4) return absl::InvalidArgumentError("At most four image attachments are supported.");
+  session_config.SetVisionModalityEnabled(images > 0);
+  if (images) diagnostics << "Image attachments: " << images
+                          << "; vision encoder NPU, vision adapter CPU, language generation NPU.\n";
   int max_tokens = request["max_output_tokens"].get<int>();
   if (max_tokens < 1 || max_tokens > 1024) return absl::InvalidArgumentError("Invalid output token limit.");
   session_config.SetMaxOutputTokens(max_tokens);

@@ -7,6 +7,10 @@ import dev.inferdroid.engine.GenerationListener;
 import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.engine.GenerationResult;
 import dev.inferdroid.engine.InferenceEngine;
+import dev.inferdroid.engine.ImageInput;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.util.Base64;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
@@ -38,6 +42,11 @@ public final class OpenAiServerTests {
             case "apiBusyDisconnectAndRecovery" -> busyDisconnectAndRecovery();
             case "apiCorsAndPortConflict" -> corsAndPortConflict();
             case "apiStopAndRestart" -> stopAndRestart();
+            case "imageDecodeBoundsAndFormats" -> imageDecode();
+            case "apiImagePartsAndHistory" -> imageParts();
+            case "apiImageValidationAndLimits" -> imageValidation();
+            case "apiImageStreaming" -> liveStreaming(imageChat(imageUrl(Bitmap.CompressFormat.PNG)));
+            case "apiImageDisconnectAndRecovery" -> busyDisconnectAndRecovery(imageChat(imageUrl(Bitmap.CompressFormat.PNG)));
             default -> throw new AssertionError("Unknown test: " + name);
         }
     }
@@ -58,7 +67,7 @@ public final class OpenAiServerTests {
             check(fixture.request("POST", "/v1/chat/completions", "{\"model\":\"x\",\"model\":\"y\"}", auth()).status == 400, "duplicate JSON field accepted");
             check(fixture.request("POST", "/v1/chat/completions", "[".repeat(40) + "0" + "]".repeat(40), auth()).status == 400, "deep JSON accepted");
             check(fixture.raw("POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\n" + auth()
-                    + "Content-Type: application/json\r\nContent-Length: 300000\r\n\r\n").status == 413, "body limit missing");
+                    + "Content-Type: application/json\r\nContent-Length: 7000000\r\n\r\n").status == 413, "body limit missing");
             check(fixture.raw("POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\n" + auth()
                     + "Content-Type: application/json\r\n\r\n").status == 411, "missing length accepted");
             check(fixture.raw("POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\n" + auth()
@@ -91,7 +100,7 @@ public final class OpenAiServerTests {
                 check(fixture.request("POST", "/v1/chat/completions", CHAT.substring(0, CHAT.length() - 1) + "," + option + "}", auth()).status == 400, "unsupported parameter accepted: " + option);
             }
             check(fixture.request("POST", "/v1/chat/completions", CHAT.replace(OpenAiServer.MODEL_ID, "unknown"), auth()).status == 404, "unknown model accepted");
-            check(fixture.request("POST", "/v1/chat/completions", CHAT.replace("\"content\":\"Hello\"", "\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"x\"}}]"), auth()).status == 400, "image input accepted");
+            check(fixture.request("POST", "/v1/chat/completions", CHAT.replace("\"content\":\"Hello\"", "\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"x\"}}]"), auth()).status == 400, "invalid image URL accepted");
             fixture.engine.fail = true;
             Response failed = fixture.request("POST", "/v1/chat/completions", CHAT, auth());
             check(failed.status == 500 && failed.json().getJSONObject("error").getString("code").equals("inference_failed"), "backend error shape");
@@ -99,8 +108,12 @@ public final class OpenAiServerTests {
     }
 
     private void liveStreaming() throws Exception {
+        liveStreaming(CHAT);
+    }
+
+    private void liveStreaming(String request) throws Exception {
         try (Fixture fixture = new Fixture(true, false); Socket client = fixture.connect()) {
-            fixture.send(client, "POST", "/v1/chat/completions", CHAT.substring(0, CHAT.length() - 1) + ",\"stream\":true,\"stream_options\":{\"include_usage\":true}}", auth());
+            fixture.send(client, "POST", "/v1/chat/completions", request.substring(0, request.length() - 1) + ",\"stream\":true,\"stream_options\":{\"include_usage\":true}}", auth());
             BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
             check(reader.readLine().contains("200"), "stream status");
             String line;
@@ -139,9 +152,13 @@ public final class OpenAiServerTests {
     }
 
     private void busyDisconnectAndRecovery() throws Exception {
+        busyDisconnectAndRecovery(CHAT);
+    }
+
+    private void busyDisconnectAndRecovery(String request) throws Exception {
         try (Fixture fixture = new Fixture(true, false)) {
             Socket abandoned = fixture.connect();
-            fixture.send(abandoned, "POST", "/v1/chat/completions", CHAT, auth());
+            fixture.send(abandoned, "POST", "/v1/chat/completions", request, auth());
             await(fixture.engine.entered);
             Response busy = fixture.request("POST", "/v1/chat/completions", CHAT, auth());
             check(busy.status == 429 && busy.json().getJSONObject("error").getString("code").equals("engine_busy"), "overlap not rejected");
@@ -200,6 +217,130 @@ public final class OpenAiServerTests {
             fixture.server = new OpenAiServer(new ServerConfig(port, "", false, false), "test-model", false, fixture.gateway, null);
             fixture.server.start();
             check(fixture.request("GET", "/v1/models", null, "").status == 200, "explicit key opt-out failed");
+        }
+    }
+
+    private static byte[] imageBytes(Bitmap.CompressFormat format) {
+        Bitmap bitmap = Bitmap.createBitmap(64, 32, Bitmap.Config.ARGB_8888);
+        bitmap.eraseColor(Color.RED);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        check(bitmap.compress(format, 90, bytes), "test image encoding failed");
+        bitmap.recycle();
+        return bytes.toByteArray();
+    }
+
+    private static String imageUrl(Bitmap.CompressFormat format) {
+        String mime = format == Bitmap.CompressFormat.PNG ? "image/png"
+                : format == Bitmap.CompressFormat.JPEG ? "image/jpeg" : "image/webp";
+        return "data:" + mime + ";base64," + Base64.encodeToString(imageBytes(format), Base64.NO_WRAP);
+    }
+
+    private static JSONObject imagePart(String url) throws Exception {
+        return new JSONObject().put("type", "image_url").put("image_url", new JSONObject().put("url", url));
+    }
+
+    private static String imageChat(String url) throws Exception {
+        return new JSONObject(CHAT).put("messages", new JSONArray().put(new JSONObject().put("role", "user")
+                .put("content", new JSONArray().put(new JSONObject().put("type", "text").put("text", "Describe this."))
+                        .put(imagePart(url))))).toString();
+    }
+
+    private void imageDecode() throws Exception {
+        for (Bitmap.CompressFormat format : new Bitmap.CompressFormat[]{Bitmap.CompressFormat.PNG,
+                Bitmap.CompressFormat.JPEG, Bitmap.CompressFormat.WEBP_LOSSLESS}) {
+            ImageInput image = ImageInput.fromDataUrl(imageUrl(format));
+            check(image.width == 64 && image.height == 32, "image dimensions changed");
+        }
+        Bitmap wide = Bitmap.createBitmap(2048, 512, Bitmap.Config.ARGB_8888);
+        wide.eraseColor(Color.BLUE);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        wide.compress(Bitmap.CompressFormat.PNG, 100, bytes);
+        wide.recycle();
+        ImageInput resized = ImageInput.decode(bytes.toByteArray(), "image/png");
+        check(resized.width == 1024 && resized.height == 256, "image downscale lost aspect ratio");
+        byte[] jpeg = imageBytes(Bitmap.CompressFormat.JPEG);
+        // EXIF Orientation=6 (90 degrees clockwise), a little-endian TIFF IFD.
+        byte[] exif = new byte[]{(byte) 0xff, (byte) 0xe1, 0, 34, 'E', 'x', 'i', 'f', 0, 0,
+                'I', 'I', 42, 0, 8, 0, 0, 0, 1, 0, 18, 1, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0};
+        ByteArrayOutputStream rotated = new ByteArrayOutputStream();
+        rotated.write(jpeg, 0, 2); rotated.write(exif); rotated.write(jpeg, 2, jpeg.length - 2);
+        ImageInput oriented = ImageInput.decode(rotated.toByteArray(), "image/jpeg");
+        check(oriented.width == 32 && oriented.height == 64, "EXIF orientation was ignored");
+        AtomicBoolean closed = new AtomicBoolean();
+        ImageInput.read(() -> new java.io.ByteArrayInputStream(imageBytes(Bitmap.CompressFormat.PNG)) {
+            @Override public void close() { closed.set(true); }
+        });
+        check(closed.get(), "image document stream leaked");
+        closed.set(false);
+        try {
+            ImageInput.read(() -> new java.io.ByteArrayInputStream(new byte[ImageInput.MAX_BYTES + 1]) {
+                @Override public void close() { closed.set(true); }
+            });
+            throw new AssertionError("oversized document read accepted");
+        } catch (ImageInput.InvalidImage expected) { check(expected.tooLarge && closed.get(), "failed image read leaked its stream"); }
+    }
+
+    private void imageParts() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            JSONObject request = new JSONObject(imageChat(imageUrl(Bitmap.CompressFormat.PNG)));
+            JSONArray turns = request.getJSONArray("messages");
+            turns.getJSONObject(0).getJSONArray("content").put(new JSONObject().put("type", "text").put("text", "Then compare."))
+                    .put(imagePart(imageUrl(Bitmap.CompressFormat.JPEG)));
+            turns.put(new JSONObject().put("role", "assistant").put("content", "Two images."));
+            turns.put(new JSONObject().put("role", "user").put("content", "What changed?"));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200, "image history rejected");
+            GenerationRequest accepted = fixture.engine.lastRequest;
+            check(accepted.messages.size() == 3 && accepted.messages.get(0).parts.size() == 4, "multimodal history was flattened");
+            check(accepted.messages.get(0).parts.get(1).isImage() && accepted.messages.get(0).parts.get(2).text.equals("Then compare.")
+                    && accepted.messages.get(0).parts.get(3).image.width == 64, "content ordering lost");
+            request.put("messages", new JSONArray().put(new JSONObject().put("role", "user")
+                    .put("content", new JSONArray().put(imagePart(imageUrl(Bitmap.CompressFormat.WEBP_LOSSLESS))))));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200, "image-only request rejected");
+            check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200
+                    && !fixture.engine.lastRequest.messages.get(0).parts.get(0).isImage()
+                    && fixture.engine.loads.get() == 1, "image history leaked into a later request or forced reload");
+        }
+    }
+
+    private void imageValidation() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            String valid = imageUrl(Bitmap.CompressFormat.PNG);
+            for (String url : new String[]{"http://127.0.0.1:9/private", "https://example.com/image.png", "file:///data/private.png",
+                    "content://provider/image", "data:image/gif;base64,R0lGODlh", "data:image/png;base64,%%%", "data:image/png;base64,AAAA",
+                    valid.replace("image/png", "image/jpeg"), valid + "\n", valid.replace(";base64", "")}) {
+                Response reply = fixture.request("POST", "/v1/chat/completions", imageChat(url), auth());
+                check(reply.status == 400 && reply.json().getJSONObject("error").getString("code").equals("invalid_image"), "invalid image admitted");
+            }
+            String animated = "data:image/webp;base64,UklGRsQAAABXRUJQVlA4WAoAAAACAAAAAwAAAwAAQU5JTQYAAAAAAAAAAABBTk1GSgAAAAAAAAAAAAMAAAMAAGQAAAJWUDggMgAAADABAJ0BKgQABAABQCYloAADcAD+8ut///mwP/bz/wR6Af//0uD//pcH//S4P/SkAAAAQU5NRkYAAAAAAAAAAAADAAADAABkAAAAVlA4IC4AAAA0AQCdASoEAAQAAAAmJaAAA3AA/vtV4///S4P/+lwf/9Lg/9Lg//rV5Vesq6AA";
+            check(fixture.request("POST", "/v1/chat/completions", imageChat(animated), auth()).status == 400, "animated image accepted");
+            JSONObject bad = new JSONObject(imageChat(valid));
+            bad.getJSONArray("messages").getJSONObject(0).getJSONArray("content").getJSONObject(1)
+                    .getJSONObject("image_url").put("detail", "high");
+            check(fixture.request("POST", "/v1/chat/completions", bad.toString(), auth()).status == 400, "unsupported detail accepted");
+            check(fixture.request("POST", "/v1/chat/completions", imageChat(valid).replace("\"user\"", "\"system\""), auth()).status == 400, "system image accepted");
+            byte[] forged = imageBytes(Bitmap.CompressFormat.PNG);
+            java.nio.ByteBuffer.wrap(forged, 16, 4).putInt(9000);
+            java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+            crc.update(forged, 12, 17);
+            java.nio.ByteBuffer.wrap(forged, 29, 4).putInt((int) crc.getValue());
+            check(fixture.request("POST", "/v1/chat/completions", imageChat("data:image/png;base64,"
+                    + Base64.encodeToString(forged, Base64.NO_WRAP)), auth()).status == 413, "oversized image dimensions accepted");
+            String huge = "data:image/png;base64," + Base64.encodeToString(new byte[ImageInput.MAX_BYTES + 1], Base64.NO_WRAP);
+            check(fixture.request("POST", "/v1/chat/completions", imageChat(huge), auth()).status == 413, "encoded image byte limit missing");
+            JSONObject many = new JSONObject(imageChat(valid));
+            JSONArray parts = many.getJSONArray("messages").getJSONObject(0).getJSONArray("content");
+            for (int i = 0; i < 4; i++) parts.put(imagePart(valid));
+            check(fixture.request("POST", "/v1/chat/completions", many.toString(), auth()).status == 413, "image count limit missing");
+            // Valid small PNG followed by padding: the source byte budget still
+            // counts bytes discarded when the decoder normalizes the image.
+            String padded = "data:image/png;base64," + Base64.encodeToString(java.util.Arrays.copyOf(
+                    imageBytes(Bitmap.CompressFormat.PNG), 1400 * 1024), Base64.NO_WRAP);
+            JSONObject total = new JSONObject(imageChat(padded));
+            total.getJSONArray("messages").getJSONObject(0).getJSONArray("content").put(imagePart(padded)).put(imagePart(padded));
+            Response aggregate = fixture.request("POST", "/v1/chat/completions", total.toString(), auth());
+            check(aggregate.status == 413 && aggregate.json().getJSONObject("error").getString("code").equals("image_too_large"), "aggregate image byte limit missing");
+            check(fixture.request("POST", "/v1/chat/completions", CHAT.replace("Hello", "x".repeat(262145)), auth()).status == 413, "text bound relaxed by larger chat body limit");
+            check(fixture.engine.loads.get() == 0 && fixture.engine.generations.get() == 0, "invalid images reached the engine");
         }
     }
 

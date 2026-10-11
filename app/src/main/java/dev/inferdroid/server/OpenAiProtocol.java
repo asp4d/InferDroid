@@ -1,6 +1,8 @@
 package dev.inferdroid.server;
 
 import dev.inferdroid.engine.ChatMessage;
+import dev.inferdroid.engine.ChatPart;
+import dev.inferdroid.engine.ImageInput;
 import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.engine.GenerationResult;
 import java.util.ArrayList;
@@ -75,8 +77,11 @@ final class OpenAiProtocol {
             Object input = json.opt("messages");
             if (!(input instanceof JSONArray)) throw invalid("messages must be a non-empty array.", "messages");
             JSONArray turns = (JSONArray) input;
-            if (turns.length() < 1 || turns.length() > 128) throw invalid("Supply 1–128 text messages.", "messages");
+            if (turns.length() < 1 || turns.length() > 128) throw invalid("Supply 1–128 messages.", "messages");
             List<ChatMessage> messages = new ArrayList<>();
+            int imageCount = 0;
+            int imageBytes = 0;
+            int textBytes = 0;
             boolean conversationStarted = false;
             for (int i = 0; i < turns.length(); i++) {
                 String param = "messages[" + i + "]";
@@ -87,7 +92,7 @@ final class OpenAiProtocol {
                 String role = string(message, "role");
                 if (role.equals("developer")) role = "system";
                 if (!Set.of("system", "user", "assistant").contains(role)) {
-                    throw invalid("Only system, developer, user, and assistant text messages are supported.", param + ".role");
+                    throw invalid("Only system, developer, user, and assistant messages are supported.", param + ".role");
                 }
                 if (role.equals("system") && conversationStarted) {
                     throw invalid("System/developer instructions must precede conversation turns.", param + ".role");
@@ -95,25 +100,51 @@ final class OpenAiProtocol {
                 if (!role.equals("system")) conversationStarted = true;
                 if (message.has("name") && !message.isNull("name")) string(message, "name");
                 Object content = message.opt("content");
-                String text;
-                if (content instanceof String) text = (String) content;
+                List<ChatPart> contents = new ArrayList<>();
+                if (content instanceof String) contents.add(ChatPart.text((String) content));
                 else if (content instanceof JSONArray) {
-                    StringBuilder joined = new StringBuilder();
                     JSONArray parts = (JSONArray) content;
+                    if (parts.length() < 1 || parts.length() > 256) throw invalid("Supply 1–256 content parts per message.", param + ".content");
                     for (int part = 0; part < parts.length(); part++) {
+                        String partParam = param + ".content[" + part + "]";
                         JSONObject item = parts.optJSONObject(part);
-                        if (item == null || !"text".equals(item.opt("type"))) {
-                            throw invalid("This milestone supports text content only.", param + ".content");
+                        if (item == null) throw invalid("Each content part must be an object.", partParam);
+                        if ("text".equals(item.opt("type"))) {
+                            keys(item, Set.of("type", "text"), partParam + ".");
+                            contents.add(ChatPart.text(string(item, "text")));
+                        } else if ("image_url".equals(item.opt("type"))) {
+                            if (!role.equals("user")) throw invalid("Image input is supported in user messages only.", partParam);
+                            keys(item, Set.of("type", "image_url"), partParam + ".");
+                            JSONObject image = item.optJSONObject("image_url");
+                            if (image == null) throw invalid("image_url must contain an object with a url string.", partParam + ".image_url");
+                            keys(image, Set.of("url", "detail"), partParam + ".image_url.");
+                            if (image.has("detail") && !"auto".equals(image.opt("detail"))) {
+                                throw invalid("Only detail=auto (or omitted) is supported by this local vision configuration.", partParam + ".image_url.detail");
+                            }
+                            if (++imageCount > ImageInput.MAX_IMAGES) throw imageLimit("Supply at most four images across the conversation.", partParam);
+                            try {
+                                ImageInput decoded = ImageInput.fromDataUrl(string(image, "url"));
+                                imageBytes += decoded.sourceBytes;
+                                if (imageBytes > ImageInput.MAX_TOTAL_BYTES) throw imageLimit("Images must total at most 4 MiB before base64 encoding.", partParam);
+                                contents.add(ChatPart.image(decoded));
+                            } catch (IOException error) {
+                                boolean large = error instanceof ImageInput.InvalidImage && ((ImageInput.InvalidImage) error).tooLarge;
+                                throw new ApiError(large ? 413 : 400, error.getMessage(), "invalid_request_error",
+                                        large ? "image_too_large" : "invalid_image", partParam + ".image_url.url");
+                            }
+                        } else {
+                            throw invalid("Supported content part types: text and image_url.", partParam + ".type");
                         }
-                        keys(item, Set.of("type", "text"), param + ".content.");
-                        joined.append(string(item, "text"));
                     }
-                    text = joined.toString();
-                } else throw invalid("content must be a string or an array of text parts.", param + ".content");
-                if (text.trim().isEmpty() || text.indexOf('\0') >= 0) {
+                } else throw invalid("content must be a string or an array of text/image_url parts.", param + ".content");
+                ChatMessage decoded = new ChatMessage(role, contents);
+                boolean hasImage = contents.stream().anyMatch(ChatPart::isImage);
+                if ((!hasImage && decoded.text.trim().isEmpty()) || decoded.text.indexOf('\0') >= 0) {
                     throw invalid("Message text must be non-empty and contain no null characters.", param + ".content");
                 }
-                messages.add(new ChatMessage(role, text));
+                textBytes += decoded.text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+                if (textBytes > 256 * 1024) throw new ApiError(413, "Conversation text exceeds 256 KiB.", "invalid_request_error", "request_too_large", "messages");
+                messages.add(decoded);
             }
             if (!messages.get(messages.size() - 1).role.equals("user")) {
                 throw invalid("The last message must be a user turn.", "messages");
@@ -154,6 +185,10 @@ final class OpenAiProtocol {
         } catch (JSONException error) {
             throw new ApiError(400, "Malformed JSON or invalid field type.", "invalid_request_error", "invalid_json", null);
         }
+    }
+
+    private static ApiError imageLimit(String message, String param) {
+        return new ApiError(413, message, "invalid_request_error", "image_too_large", param);
     }
 
     // Android's JSONObject parser accepts JavaScript-like syntax. Validate strict

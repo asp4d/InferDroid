@@ -27,6 +27,8 @@ import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 import dev.inferdroid.engine.EngineManager;
 import dev.inferdroid.engine.GenerationRequest;
+import dev.inferdroid.engine.ChatMessage;
+import dev.inferdroid.engine.ChatPart;
 import dev.inferdroid.server.ServerConfig;
 import dev.inferdroid.speech.SpeechManager;
 import dev.inferdroid.speech.SpeechLanguages;
@@ -46,6 +48,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     private static final int PICK_AUDIO = 4;
     private static final int PICK_TTS_MODEL = 5;
     private static final int SAVE_TTS = 6;
+    private static final int PICK_IMAGE = 7;
     private InferenceService service;
     private EngineManager manager;
     private SpeechManager speech;
@@ -80,6 +83,10 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     private SharedPreferences preferences;
     private EditText modelSource;
     private EditText prompt;
+    private Uri selectedImage;
+    private Button chooseImage;
+    private Button clearImage;
+    private TextView imageSource;
     private CheckBox verbose;
     private Button run;
     private Button choose;
@@ -163,6 +170,19 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         preferences = getSharedPreferences("inference", MODE_PRIVATE);
         modelSource = findViewById(R.id.model_source);
         prompt = findViewById(R.id.prompt);
+        chooseImage = findViewById(R.id.choose_image);
+        clearImage = findViewById(R.id.clear_image);
+        imageSource = findViewById(R.id.image_source);
+        if (savedInstanceState != null) {
+            String image = savedInstanceState.getString("image_uri");
+            if (image != null) selectedImage = Uri.parse(image);
+        }
+        updateImageSelection();
+        chooseImage.setOnClickListener(view -> startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
+                .putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/png", "image/jpeg", "image/webp"})
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), PICK_IMAGE));
+        clearImage.setOnClickListener(view -> { selectedImage = null; updateImageSelection(); });
         verbose = findViewById(R.id.verbose);
         run = findViewById(R.id.run);
         choose = findViewById(R.id.choose_model);
@@ -370,6 +390,11 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri selected = data.getData();
+            if (requestCode == PICK_IMAGE) {
+                selectedImage = selected;
+                updateImageSelection();
+                return;
+            }
             if (requestCode == SAVE_TTS) {
                 pendingTtsExport = selected;
                 exportTtsIfReady();
@@ -435,14 +460,33 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         String source = selectedModel();
         if (source == null) return;
         String text = prompt.getText().toString();
-        if (text.trim().isEmpty() || text.indexOf('\0') >= 0) {
+        if ((selectedImage == null && text.trim().isEmpty()) || text.indexOf('\0') >= 0) {
             status.setText(R.string.prompt_required);
             return;
         }
-        GenerationRequest request = new GenerationRequest(source, text, verbose.isChecked());
+        java.util.List<ChatPart> parts = new java.util.ArrayList<>();
+        if (!text.isEmpty()) parts.add(ChatPart.text(text));
+        if (selectedImage != null) {
+            Uri image = selectedImage;
+            android.content.ContentResolver resolver = getContentResolver();
+            // The engine worker reads and normalizes the selected image. No decoding on main.
+            parts.add(ChatPart.image(() -> resolver.openInputStream(image)));
+        }
+        GenerationRequest request = new GenerationRequest(source,
+                java.util.List.of(new ChatMessage("user", parts)), verbose.isChecked(), 256, null, null, null);
         withNotificationPermission(() -> {
             if (!service.generate(request)) status.setText(R.string.engine_busy);
         });
+    }
+
+    private void updateImageSelection() {
+        imageSource.setText(selectedImage == null ? getString(R.string.image_not_selected) : selectedImage.toString());
+        clearImage.setEnabled(selectedImage != null);
+    }
+
+    @Override protected void onSaveInstanceState(Bundle state) {
+        if (selectedImage != null) state.putString("image_uri", selectedImage.toString());
+        super.onSaveInstanceState(state);
     }
 
     private void setApiKeyVisible(boolean visible) {
@@ -583,6 +627,8 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         choose.setEnabled(!busy && !serving);
         modelSource.setEnabled(!busy && !serving);
         prompt.setEnabled(!busy);
+        chooseImage.setEnabled(!busy);
+        clearImage.setEnabled(!busy && selectedImage != null);
         verbose.setEnabled(!busy && !serving);
         startServer.setEnabled(!serving && !busy);
         stopServer.setEnabled(serving);
@@ -611,7 +657,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         playTts.setEnabled(!busy && generatedAudio() != null);
         saveTts.setEnabled(!busy && generatedAudio() != null);
         ttsModelStatus.setText(hasTtsModel ? R.string.tts_model_ready : R.string.tts_model_missing);
-        backend.setText(state.backend);
+        backend.setText(getString(R.string.native_backend_format, state.backend, getString(R.string.vision_backend)));
         status.setText(state.status);
         output.setText(state.result == null ? "" : state.result.text);
         diagnostics.setText(state.result == null ? "" : state.result.diagnostics);

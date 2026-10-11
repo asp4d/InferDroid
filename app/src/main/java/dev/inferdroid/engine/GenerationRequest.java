@@ -2,7 +2,7 @@ package dev.inferdroid.engine;
 
 import java.util.List;
 
-/** Protocol-neutral text request. Every request supplies its own conversation. */
+/** Protocol-neutral chat request. Every request supplies its own conversation. */
 public final class GenerationRequest {
     public final String modelSource;
     public final String prompt;

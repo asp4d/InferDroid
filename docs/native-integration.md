@@ -40,8 +40,11 @@ The adapter uses the following **existing** APIs at the pinned commit:
 1. [`ModelAssets::Create`](https://github.com/google-ai-edge/LiteRT-LM/blob/0b98b80e1d846af27d10b8ab395645119cb231e4/runtime/executor/executor_settings_base.h)
    accepts a path or `std::shared_ptr<ScopedFile>`.
 2. [`EngineSettings::CreateDefault`](https://github.com/google-ai-edge/LiteRT-LM/blob/0b98b80e1d846af27d10b8ab395645119cb231e4/runtime/engine/engine_settings.h)
-   takes those assets and `Backend::NPU`. Vision/audio backends remain unset,
-   as in the working text-only CLI.
+   takes those assets and `Backend::NPU`. Milestone 6 also supplies the pinned
+   runtime's CPU vision option. The package's already compiled vision encoder
+   still runs through G5 NPU dispatch; its builtin adapter runs on CPU.
+   The app validates these graphs rather than inferring execution from the
+   option name. Gemma audio remains unset; ASR/TTS use separate engines.
 3. `GetMutableMainExecutorSettings().SetLitertDispatchLibDir(...)` is the
    actual setter in `ExecutorSettingsBase`; `SetCacheDir(...)` configures a
    writable app-private cache.
@@ -54,7 +57,9 @@ The adapter uses the following **existing** APIs at the pinned commit:
    plus `Engine::WaitUntilDone(Engine::kDefaultTimeout)` follows the CLI's
    async call and drain. The message is
    `{"role":"user","content":[{"type":"text","text":prompt}]}`. The
-   model metadata supplies the chat template. The Java executor thread waits
+   Image parts use `{"type":"image","blob":"<normalized PNG base64>"}`;
+   `SessionConfig::SetVisionModalityEnabled(true)` enables the vision path only
+   for image requests. The model metadata supplies the chat template. The Java executor thread waits
    for the complete response and reads `Conversation::GetHistory()` after
    callbacks finish; the Android main thread remains free.
 7. `Conversation::CancelProcess()` forwards to the pinned
@@ -204,8 +209,9 @@ the HTTP server binds only to `127.0.0.1` and makes no outbound requests.
 The wake lock is released between operations. `START_NOT_STICKY` means a
 process kill does not silently reinitialize the model or restart the listener.
 An independent ASR runtime is described in
-[speech-recognition.md](speech-recognition.md) and [TTS](tts.md). Gemma multimodal input,
-vision, image generation, and ToolManager remain future work.
+[speech-recognition.md](speech-recognition.md) and [TTS](tts.md).
+Image generation and ToolManager remain future work. Milestone 6 adds
+[Gemma image understanding](image-understanding.md) using the same package and pins.
 
 Two milestone 1 APK runs and six milestone 2 service requests passed on
 2026-10-08, returning generated text to Java with matching dispatch-kernel and

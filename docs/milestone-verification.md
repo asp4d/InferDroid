@@ -524,4 +524,107 @@ Local keys were neither printed nor written to tracked artifacts. ADB forwarding
 and log capture were removed/stopped after verification. Third-party client
 compatibility and the other 29 TTS languages still need individual testing.
 
-Milestones 1–5 are complete. Milestone 6 (Gemma image understanding) has not started.
+## Milestone 6 — passed 2026-10-11
+
+The existing Pixel 10 / GrapheneOS, G5 model file, and LiteRT-LM/LiteRT/NDK pins
+remain unchanged. No new model weights or GPU libraries were added. The final
+adapter SHA-256 is
+`22cc2596920c755a323f8fa09d9b03f4a1e4b6c4e943dc84ef82ec79f15ee2a6`.
+
+### Actual vision accelerator, beyond the runtime option
+
+The package includes a 229,832,496-byte vision encoder and a 4,742,928-byte
+vision adapter. Inspection of its actual FlatBuffers and the final app's
+load-time graph checks found:
+
+| Subgraphs | Operators per subgraph | Execution |
+| --- | --- | --- |
+| `vision_70`, `vision_140`, `vision_280` | One custom `DISPATCH_OP` | AOT Tensor G5 NPU encoder |
+| `vision_adapter_70`, `vision_adapter_140`, `vision_adapter_280` | 15 builtin operators | CPU vision adapter |
+
+The pinned vision executor's `Backend::CPU` option does not move an already
+compiled `DISPATCH_OP` graph onto CPU. Encoder creation was followed by
+SouthBound context creation and three async dispatch delegate initializations.
+Actual image processing selected `vision_adapter_280`, recorded a vision
+execution duration, and returned image-dependent answers. The final adapter
+checks the encoder/adapter graphs before creating the engine, observes the
+expected Google Tensor/EdgeTPU libraries, and reports this measured arrangement
+to Java. Image decoding, normalization, and Gemma patch preprocessing are CPU
+work; language generation retains the original NPU route without a CPU retry.
+
+Final diagnostics reported 2,470 ms initialization including both language and
+vision. A warm image SSE request on the implementation build recorded
+595.013 ms in the upstream `vision_executor` timing. These are observations
+for the controlled fixtures, not universal image latency estimates.
+
+### Real UI/API checks
+
+Test images were generated in code: a red circle and a blue square on white,
+with black “HELLO 42” text underneath. PNG, JPEG, and WebP versions were used;
+no private photos or outside image URLs were accessed. The first implementation
+request returned HTTP 200 in 6.508 s including automatic initialization.
+
+| Check | Wall time | Result |
+| --- | --- | --- |
+| Final APK, red circle PNG, including load and graph validation | 5.484 s | “The shape is a circle and the color is red.”; 291 prompt / 12 completion tokens |
+| Blue square JPEG | 2.915 s | Correct square/color and “HELLO 42”; incorrectly called the text white |
+| Explicit printed-text reading | 1.610 s | Exactly “HELLO 42” |
+| PNG + WebP comparison | 3.239 s | Correctly distinguished the red circle from the blue square; 566 / 20 tokens |
+| Earlier-image conversation history | 1.480 s | Correctly answered “Blue” in a later user turn |
+| Final APK, image-only user content | 2.870 s | Identified the blue square and printed text; text color/placement inaccurate |
+| Final APK, text-only introduction | 3.195 s | Original Gemma introduction, 15 / 44 tokens |
+| Detailed image SSE | First content 1.311 s; total 7.263 s | 106 live text chunks, `[DONE]`, correct shape/color/text |
+| Final APK, background image SSE | First content 1.558 s; total 2.668 s | 11 chunks, correct blue square, `[DONE]`; Activity unbound and service foreground |
+
+The SAF **Attach image** picker selected the fixture from internal storage.
+The UI engine worker decoded that selected URI and returned an Italian
+description of the red circle and “HELLO 42.” **Clear image** removed its
+selection. The final backend label identifies NPU vision with a CPU adapter.
+Inputs normalize in memory; no temporary image files are created.
+
+The final APK also passed CPU audio regression while Gemma/vision remained
+loaded: a 3.634-second TTS WAV took 3.768 s including first synthesis load and
+1.734 s warm; the public Whisper `0.wav` returned the expected transcript in
+2.961 s. A TTS request during real image streaming returned 429. Disconnecting
+that image stream recovered with a successful chat request in 1.030 s.
+Disconnect during four-image prefill required one 429 retry and recovered in
+1.551 s. The same loaded Gemma engine remained usable after both cancellations.
+
+Before final unload, the app had 14 Gemma/vision mappings and 11 descriptors
+referencing the model. Full Unload / Stop released these, unloaded the CPU audio
+engines, closed the listener, and removed foreground/start-requested state.
+The app was left visible with models unloaded and the listener stopped.
+
+### Build and test evidence
+
+Java 21 CLI and IDE builds passed. Native compilation used the same pinned
+sources and toolchains; Android lint reported 0 errors and the 12 existing
+warnings. All **25 instrumentation tests passed**, including the original
+20 lifecycle/chat/audio/TTS checks and five image tests for:
+
+- Real Android PNG/JPEG/WebP decoding, aspect-ratio normalization, EXIF
+  orientation, and document-stream closure on success/oversize failure.
+- Ordered image/text parts, multiple images, earlier-image history, image-only
+  requests, and later text-only isolation with a retained test engine.
+- Remote/path rejection, corrupt/base64/MIME/animated-image errors, dimensions,
+  per-image/aggregate byte limits, image count, and the separate chat text cap.
+- Live image SSE and terminal markers through actual sockets.
+- Image disconnect ownership, busy rejection, and retained-engine recovery.
+
+The final debug APK contains seven arm64 native libraries and no model weights.
+Size: 54,540,286 bytes (52.0 MiB). SHA-256:
+
+```text
+21045413fdc86c1fd7e6d2e8965346ae2b0ae4e8cb67459a14de5887eedace67
+```
+
+Temporary host evidence includes `/tmp/inferdroid-m6-final-native-build.log`,
+`/tmp/inferdroid-m6-final-build.log`, `/tmp/inferdroid-m6-final-tests.log`,
+`/tmp/inferdroid-m6-final-logcat.log`, `/tmp/inferdroid-m6-final-real.log`,
+`/tmp/inferdroid-m6-background.log`, `/tmp/inferdroid-m6-final-regression.log`,
+and `/tmp/inferdroid-m6-final-diagnostics.log`. Local API keys were not printed
+or written to tracked files. The verification forward and log capture were
+removed/stopped afterward. See [image handling and API limits](image-understanding.md).
+
+Milestones 1–6 are complete. Image generation and network/tool support remain
+future work.

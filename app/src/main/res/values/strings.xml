@@ -95,4 +95,10 @@
     <string name="language_en">English</string>
     <string name="language_it">Italiano (Italian)</string>
     <string name="back">Back</string>
+    <string name="choose_image">Attach image</string>
+    <string name="vision_backend">Vision: G5 NPU + CPU adapter</string>
+    <string name="native_backend_format">%1$s · %2$s</string>
+    <string name="clear_image">Clear image</string>
+    <string name="image_not_selected">No image attached</string>
+    <string name="image_help">Optional PNG, JPEG, or WebP still image (up to 2 MiB). Images are resized locally; Gemma replies with text.</string>
 </resources>

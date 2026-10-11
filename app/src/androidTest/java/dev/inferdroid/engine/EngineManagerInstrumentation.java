@@ -35,7 +35,9 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 "apiBusyDisconnectAndRecovery", "apiCorsAndPortConflict", "apiStopAndRestart",
                 "audioDecodeBoundsAndFormats", "audioMultipartValidation", "audioResponsesAndModelDiscovery",
                 "audioChatContention", "audioDisconnectCancelAndRecovery", "audioStopDuringLoadAndImport",
-                "ttsValidationAndFormats", "ttsBusyAndReuse", "ttsDisconnectAndRecovery", "ttsStopDuringLoadAndImport"};
+                "ttsValidationAndFormats", "ttsBusyAndReuse", "ttsDisconnectAndRecovery", "ttsStopDuringLoadAndImport",
+                "imageDecodeBoundsAndFormats", "apiImagePartsAndHistory", "apiImageValidationAndLimits",
+                "apiImageStreaming", "apiImageDisconnectAndRecovery"};
         for (int index = 0; index < names.length; index++) {
             Bundle status = new Bundle();
             status.putString("class", getClass().getName());
@@ -50,7 +52,8 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 else if (index == 3) splitUtf8Streaming();
                 else if (index < 10) new OpenAiServerTests(this).run(names[index]);
                 else if (index < 16) new SpeechTests(this).run(names[index]);
-                else new TtsTests(this).run(names[index]);
+                else if (index < 20) new TtsTests(this).run(names[index]);
+                else new OpenAiServerTests(this).run(names[index]);
                 sendStatus(0, status);
             } catch (Throwable error) {
                 failures++;
