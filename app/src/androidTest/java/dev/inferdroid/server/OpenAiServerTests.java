@@ -8,6 +8,8 @@ import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.engine.GenerationResult;
 import dev.inferdroid.engine.InferenceEngine;
 import dev.inferdroid.engine.ImageInput;
+import dev.inferdroid.engine.ToolCall;
+import java.util.List;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Base64;
@@ -51,6 +53,10 @@ public final class OpenAiServerTests {
             case "apiThinkingStreaming" -> thinkingStreaming();
             case "apiThinkingTruncationAndRecovery" -> thinkingTruncationAndRecovery();
             case "apiThinkingDisconnectAndRecovery" -> busyDisconnectAndRecovery(thinkingChat());
+            case "apiClientToolsBufferedAndHistory" -> clientToolsBufferedAndHistory();
+            case "apiClientToolsStreamingAndTruncation" -> clientToolsStreamingAndTruncation();
+            case "apiClientToolsValidation" -> clientToolsValidation();
+            case "apiReasoningCompatibilityControls" -> reasoningCompatibilityControls();
             default -> throw new AssertionError("Unknown test: " + name);
         }
     }
@@ -117,6 +123,144 @@ public final class OpenAiServerTests {
 
     private static String thinkingChat() throws Exception {
         return new JSONObject(CHAT).put("enable_thinking", true).toString();
+    }
+
+    private static JSONObject toolsChat() throws Exception {
+        JSONArray tools = new JSONArray("[{\"type\":\"function\",\"function\":{\"name\":\"test_add\",\"description\":\"Add integers.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"a\":{\"type\":\"integer\"},\"b\":{\"type\":\"integer\"}},\"required\":[\"a\",\"b\"]}}},{\"type\":\"function\",\"function\":{\"name\":\"test_echo\",\"parameters\":{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}}}}}]");
+        return new JSONObject(CHAT).put("tools", tools);
+    }
+
+    private static List<ToolCall> exampleCalls() {
+        return List.of(new ToolCall("call_one", "test_add", "{\"a\":17,\"b\":23}"),
+                new ToolCall("call_two", "test_echo", "{\"text\":\"Quotes: \\\"ciao\\\" 🌍\"}"));
+    }
+
+    private void clientToolsBufferedAndHistory() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            fixture.engine.replyCalls = exampleCalls();
+            JSONObject request = toolsChat().put("enable_thinking", true);
+            Response response = fixture.request("POST", "/v1/chat/completions", request.toString(), auth());
+            check(response.status == 200, "buffered function request failed: " + response.body);
+            JSONObject choice = response.json().getJSONArray("choices").getJSONObject(0);
+            JSONObject assistant = choice.getJSONObject("message");
+            JSONArray calls = assistant.getJSONArray("tool_calls");
+            check(choice.getString("finish_reason").equals("tool_calls") && assistant.isNull("content")
+                    && assistant.getString("reasoning_content").equals("Plan 🧠.") && calls.length() == 2,
+                    "function response did not preserve thought, tool-only content, and finish reason");
+            check(!calls.getJSONObject(0).has("index") && calls.getJSONObject(1).getJSONObject("function")
+                    .getString("arguments").equals(exampleCalls().get(1).argumentsJson), "buffered arguments corrupted");
+            check(fixture.engine.lastRequest.allowToolCalls && fixture.engine.lastRequest.tools.size() == 2,
+                    "function definitions were dropped");
+            // Out-of-order results must match IDs, not positions. Echo the assistant reply unchanged.
+            request.put("messages", new JSONArray().put(new JSONObject().put("role", "user").put("content", "Use both functions."))
+                    .put(assistant).put(new JSONObject().put("role", "tool").put("tool_call_id", "call_two").put("content", "ciao 🌍"))
+                    .put(new JSONObject().put("role", "tool").put("tool_call_id", "call_one").put("content", "40")));
+            fixture.engine.replyCalls = List.of();
+            Response followup = fixture.request("POST", "/v1/chat/completions", request.toString(), auth());
+            check(followup.status == 200, "function result round trip failed: " + followup.body);
+            GenerationRequest accepted = fixture.engine.lastRequest;
+            check(accepted.messages.get(1).toolCalls.size() == 2 && accepted.messages.get(1).text.isEmpty()
+                    && accepted.messages.get(2).toolName.equals("test_echo") && accepted.messages.get(3).toolName.equals("test_add")
+                    && accepted.messages.get(2).text.equals("ciao 🌍") && fixture.engine.loads.get() == 1,
+                    "function history flattened, misidentified, or reloaded the engine");
+            check(fixture.request("POST", "/v1/chat/completions", toolsChat().put("tool_choice", "none").toString(), auth()).status == 200
+                    && !fixture.engine.lastRequest.allowToolCalls, "tool_choice=none rejected or enabled execution");
+        }
+    }
+
+    private void clientToolsStreamingAndTruncation() throws Exception {
+        try (Fixture fixture = new Fixture(true, false); Socket client = fixture.connect()) {
+            fixture.engine.replyCalls = exampleCalls();
+            JSONObject request = toolsChat().put("enable_thinking", true).put("stream", true)
+                    .put("stream_options", new JSONObject().put("include_usage", true));
+            fixture.send(client, "POST", "/v1/chat/completions", request.toString(), auth());
+            BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
+            check(reader.readLine().contains("200"), "function stream status");
+            while (!reader.readLine().isEmpty()) { }
+            boolean sawThought = false, sawCalls = false, sawFinish = false, sawUsage = false, done = false;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data: ")) continue;
+                if (line.equals("data: [DONE]")) { done = true; break; }
+                JSONObject frame = new JSONObject(line.substring(6));
+                check(!frame.has("error"), "function stream error: " + frame);
+                JSONArray choices = frame.getJSONArray("choices");
+                if (choices.length() == 0) { sawUsage = frame.getJSONObject("usage").getInt("completion_tokens") == 16; continue; }
+                JSONObject choice = choices.getJSONObject(0), delta = choice.getJSONObject("delta");
+                if (delta.has("reasoning_content")) {
+                    check(!sawCalls && fixture.engine.finished.getCount() == 1, "thinking was buffered behind the tool call");
+                    sawThought = true; fixture.engine.allowFinish.countDown();
+                }
+                if (delta.has("tool_calls")) {
+                    check(sawThought && !sawCalls && fixture.engine.finished.getCount() == 0, "executable arguments released before completion or duplicated");
+                    JSONArray calls = delta.getJSONArray("tool_calls");
+                    check(calls.length() == 2 && calls.getJSONObject(1).getInt("index") == 1
+                            && calls.getJSONObject(1).getJSONObject("function").getString("arguments").equals(exampleCalls().get(1).argumentsJson), "streamed function arguments corrupted");
+                    sawCalls = true;
+                }
+                if ("tool_calls".equals(choice.optString("finish_reason"))) { check(sawCalls, "finish preceded function arguments"); sawFinish = true; }
+            }
+            check(done && sawThought && sawCalls && sawFinish && sawUsage, "incomplete function stream");
+            request.remove("enable_thinking"); request.put("max_tokens", 4);
+            Response truncated = fixture.request("POST", "/v1/chat/completions", request.toString(), auth());
+            check(truncated.status == 200 && truncated.body.contains("\"finish_reason\":\"length\"")
+                    && !truncated.body.contains("\"tool_calls\"") && truncated.body.contains("[DONE]"), "length-limited function call was executable");
+            fixture.engine.replyCalls = List.of();
+            check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200 && fixture.engine.loads.get() == 1,
+                    "function truncation broke engine recovery");
+        }
+    }
+
+    private void clientToolsValidation() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            JSONObject request = toolsChat();
+            JSONObject definition = request.getJSONArray("tools").getJSONObject(0).getJSONObject("function");
+            definition.put("strict", true);
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "unsupported strict schema accepted");
+            definition.remove("strict"); definition.put("name", "bad name");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "unsafe function name accepted");
+            request = toolsChat(); request.getJSONArray("tools").put(request.getJSONArray("tools").getJSONObject(0));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "duplicate function names accepted");
+            request = toolsChat().put("tool_choice", "required");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "forced calls claimed supported");
+            JSONObject assistant = new JSONObject().put("role", "assistant").put("content", JSONObject.NULL)
+                    .put("tool_calls", OpenAiTools.wireCalls(exampleCalls(), false));
+            JSONArray history = new JSONArray().put(new JSONObject().put("role", "user").put("content", "Use functions.")).put(assistant);
+            request = toolsChat().put("messages", history);
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "pending tool results accepted");
+            history.put(new JSONObject().put("role", "tool").put("tool_call_id", "wrong_id").put("content", "40"));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "orphan tool result accepted");
+            history.getJSONObject(2).put("tool_call_id", "call_one"); history.put(history.getJSONObject(2));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "duplicate tool result accepted");
+            history.getJSONObject(1).getJSONArray("tool_calls").getJSONObject(0).getJSONObject("function").put("arguments", "[]");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "non-object function arguments accepted");
+            check(fixture.engine.generations.get() == 0 && fixture.engine.loads.get() == 0, "invalid functions touched inference");
+        }
+    }
+
+    private void reasoningCompatibilityControls() throws Exception {
+        try (Fixture fixture = new Fixture(false, false, true)) {
+            check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200
+                    && fixture.engine.lastRequest.enableThinking && fixture.engine.lastRequest.maxOutputTokens == 2048, "configured thinking default ignored");
+            JSONObject request = new JSONObject(CHAT).put("enable_thinking", false);
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200
+                    && !fixture.engine.lastRequest.enableThinking && fixture.engine.lastRequest.maxOutputTokens == 256, "explicit disable lost to default");
+            request = new JSONObject(CHAT).put("reasoning_effort", "none");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200 && !fixture.engine.lastRequest.enableThinking, "effort=none ignored");
+            request.put("reasoning_effort", "high");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200 && fixture.engine.lastRequest.enableThinking, "positive effort ignored");
+            request = new JSONObject(CHAT).put("reasoning", new JSONObject().put("effort", "medium")).put("prompt_cache_key", "synthetic-conversation");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200 && fixture.engine.lastRequest.enableThinking, "OpenRouter reasoning/metadata rejected");
+            request.getJSONObject("reasoning").put("enabled", false).remove("effort");
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200 && !fixture.engine.lastRequest.enableThinking, "reasoning.enabled=false ignored");
+            int before = fixture.engine.generations.get();
+            request.put("enable_thinking", true);
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "conflicting reasoning controls accepted");
+            request = new JSONObject(CHAT).put("reasoning", new JSONObject().put("max_tokens", 128));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 400, "separate reasoning budget falsely supported");
+            check(fixture.request("POST", "/v1/chat/completions", new JSONObject(CHAT).put("reasoning_effort", true).toString(), auth()).status == 400, "non-string effort accepted");
+            check(fixture.engine.generations.get() == before, "invalid reasoning touched inference");
+        }
     }
 
     private void thinkingParametersAndHistory() throws Exception {
@@ -458,6 +602,9 @@ public final class OpenAiServerTests {
         OpenAiServer server;
 
         Fixture(boolean hold, boolean cors) throws Exception {
+            this(hold, cors, false);
+        }
+        Fixture(boolean hold, boolean cors, boolean defaultThinking) throws Exception {
             if (hold) engine.allowFinish = new CountDownLatch(1);
             manager = onMain(() -> new EngineManager(engine, new EngineManager.WorkGuard() {
                 @Override public void begin() { check(Looper.myLooper() != Looper.getMainLooper(), "native work on main"); }
@@ -473,7 +620,7 @@ public final class OpenAiServerTests {
                     new android.os.Handler(Looper.getMainLooper()).post(() -> manager.cancel(listener));
                 }
             };
-            server = new OpenAiServer(new ServerConfig(0, KEY, true, cors), "test-model", false, gateway, null);
+            server = new OpenAiServer(new ServerConfig(0, KEY, true, cors, defaultThinking), "test-model", false, gateway, null);
             server.start();
         }
 
@@ -517,6 +664,7 @@ public final class OpenAiServerTests {
         volatile GenerationRequest lastRequest;
         volatile boolean loaded;
         volatile boolean fail;
+        volatile List<ToolCall> replyCalls = List.of();
 
         @Override public GenerationResult load(String model, boolean verbose) {
             if (!loaded) { loaded = true; loads.incrementAndGet(); }
@@ -529,6 +677,14 @@ public final class OpenAiServerTests {
         @Override public GenerationResult generate(GenerationRequest request, AtomicBoolean cancel, GenerationListener listener) throws Exception {
             lastRequest = request;
             generations.incrementAndGet();
+            if (!replyCalls.isEmpty()) {
+                if (listener != null && request.enableThinking) listener.onReasoning("Plan 🧠.");
+                entered.countDown(); await(allowFinish);
+                if (cancel.get()) return new GenerationResult(false, true, "", "cancelled");
+                finished.countDown();
+                return new GenerationResult(true, false, "", request.enableThinking ? "Plan 🧠." : "", replyCalls,
+                        "test functions", 12, request.maxOutputTokens == 4 ? 4 : 16, request.maxOutputTokens == 4);
+            }
             if (request.enableThinking && request.maxOutputTokens == 4) {
                 if (listener != null) listener.onReasoning("Plan 🧠.");
                 return new GenerationResult(true, false, "", "Plan 🧠.", "test result", 12, 4, true);

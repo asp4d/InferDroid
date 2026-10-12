@@ -288,12 +288,19 @@ struct GenerationMetrics {
   bool limit_reached = false;
 };
 
-std::string MessageText(const litert::lm::Message& message) {
+std::string MessageText(const litert::lm::Message& message, bool has_tools = false) {
   std::string text;
   if (message.contains("content") && message["content"].is_array()) {
     for (const auto& part : message["content"]) {
+      if (has_tools && part.contains("error")) continue;
       if (part.contains("text") && part["text"].is_string()) text += part["text"].get<std::string>();
     }
+  }
+  if (has_tools) {
+    // The pinned parser leaves an unfinished function block in content when
+    // the token cap interrupts it. Apply this to deltas and final text alike.
+    auto unfinished_call = text.find("<|tool_call>");
+    if (unfinished_call != std::string::npos) text.resize(unfinished_call);
   }
   return text;
 }
@@ -311,6 +318,7 @@ std::string MessageReasoning(const litert::lm::Message& message) {
 struct ChatOutput {
   std::string text;
   std::string reasoning;
+  std::string tool_calls;
 };
 
 absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtime,
@@ -358,12 +366,20 @@ absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtim
     return absl::InvalidArgumentError("Invalid thinking setting.");
   }
   const bool enable_thinking = request.value("enable_thinking", false);
+  auto tools = request.value("tools", nlohmann::json::array());
+  if (!tools.is_array() || tools.size() > 128) {
+    return absl::InvalidArgumentError("Invalid internal function definitions.");
+  }
+  JsonPreface preface;
+  preface.tools = tools;
   diagnostics << "Thinking: " << (enable_thinking ? "enabled" : "disabled") << '\n';
+  diagnostics << "Client function definitions: " << tools.size() << "; execution remains with the client.\n";
   // This G5 package predates channel metadata. Declare Gemma's thought channel
   // explicitly so LiteRT parses split delimiters and truncated thought blocks.
   auto config = ConversationConfig::Builder()
       .SetSessionConfig(session_config)
       .SetEnableThinking(enable_thinking)
+      .SetPreface(preface)
       .SetChannels({Channel{"thought", "<|channel>thought", "<channel|>"}})
       .Build(*runtime->engine);
   if (!config.ok()) return config.status();
@@ -390,7 +406,7 @@ absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtim
     runtime->active_request = request_id;
     runtime->active_conversation = conversation->get();
     started = (*conversation)->SendMessageAsync(message,
-        [callback, on_text, callback_context](absl::StatusOr<Message> chunk) {
+        [callback, on_text, callback_context, has_tools = !tools.empty()](absl::StatusOr<Message> chunk) {
           if (!chunk.ok() || chunk->is_null()) {
             std::lock_guard<std::mutex> lock(callback->mutex);
             if (!chunk.ok()) callback->status = chunk.status();
@@ -398,7 +414,7 @@ absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtim
             callback->completed.notify_all();
           } else if (on_text) {
             std::string reasoning = MessageReasoning(*chunk);
-            std::string text = MessageText(*chunk);
+            std::string text = MessageText(*chunk, has_tools);
             if ((!reasoning.empty() && !on_text(callback_context, 1, reasoning.data(), reasoning.size())) ||
                 (!text.empty() && !on_text(callback_context, 0, text.data(), text.size()))) {
               std::lock_guard<std::mutex> lock(callback->mutex);
@@ -452,7 +468,12 @@ absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtim
     return absl::InternalError("No completed model response in conversation history.");
   }
 
-  std::string text = MessageText(response);
+  std::string text = MessageText(response, !tools.empty());
+  if (!tools.empty() && response.contains("content") && response["content"].is_array()) {
+    for (const auto& part : response["content"]) {
+      if (part.contains("error")) return absl::InternalError("The model produced a malformed function call.");
+    }
+  }
   auto benchmark = (*conversation)->GetBenchmarkInfo();
   if (benchmark.ok()) {
     diagnostics << *benchmark << '\n';
@@ -466,9 +487,34 @@ absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtim
     }
   }
   metrics.limit_reached = metrics.completion_tokens >= max_tokens;
+  auto tool_calls = nlohmann::ordered_json::array();
+  // A length-limited decode may contain partial arguments. Never expose it as an
+  // executable call, even when the upstream parser recovered a JSON prefix.
+  if (!metrics.limit_reached && response.contains("tool_calls")) {
+    const auto& calls = response["tool_calls"];
+    if (!calls.is_array() || calls.size() > 128) {
+      return absl::InternalError("Invalid native function-call output.");
+    }
+    for (const auto& call : calls) {
+      if (!call.is_object() || !call.contains("function") || !call["function"].is_object()) {
+        return absl::InternalError("Invalid native function-call output.");
+      }
+      const auto& function = call["function"];
+      if (!function.contains("name") || !function["name"].is_string() ||
+          !function.contains("arguments") || !function["arguments"].is_object()) {
+        return absl::InternalError("Incomplete native function-call output.");
+      }
+      bool declared = false;
+      for (const auto& tool : tools) {
+        if (tool.at("function").at("name") == function["name"]) declared = true;
+      }
+      if (!declared) return absl::InternalError("The model requested an undeclared function.");
+      tool_calls.push_back(call);
+    }
+  }
   diagnostics << "Generation completed with NPU requested and Google Tensor/EdgeTPU libraries loaded.\n"
               << "Confirm dispatch_delegate_kernel and SouthBound evidence in the load logs or logcat.\n";
-  return ChatOutput{text, MessageReasoning(response)};
+  return ChatOutput{text, MessageReasoning(response), tool_calls.dump()};
 }
 
 char* Copy(const std::string& text) {
@@ -478,7 +524,8 @@ char* Copy(const std::string& text) {
 }
 InferDroidResult* Result(const absl::Status& status, const std::string& text,
                         const std::ostringstream& diagnostics, uint64_t handle = 0,
-                        GenerationMetrics metrics = {}, const std::string& reasoning = "") {
+                        GenerationMetrics metrics = {}, const std::string& reasoning = "",
+                        const std::string& tool_calls = "[]") {
   const std::string log = diagnostics.str();
   auto* result = static_cast<InferDroidResult*>(calloc(1, sizeof(InferDroidResult)));
   if (!result) return nullptr;
@@ -492,9 +539,11 @@ InferDroidResult* Result(const absl::Status& status, const std::string& text,
   result->text_size = text.size();
   result->reasoning = Copy(reasoning);
   result->reasoning_size = reasoning.size();
+  result->tool_calls = Copy(tool_calls);
+  result->tool_calls_size = tool_calls.size();
   result->diagnostics = Copy(log);
   result->diagnostics_size = log.size();
-  if (!result->text || !result->reasoning || !result->diagnostics) {
+  if (!result->text || !result->reasoning || !result->tool_calls || !result->diagnostics) {
     inferdroid_result_free(result);
     return nullptr;
   }
@@ -541,7 +590,8 @@ InferDroidResult* inferdroid_engine_generate(uint64_t handle, uint64_t request_i
   if (!generated.ok()) diagnostics << generated.status().ToString() << '\n';
   diagnostics << "\nNative request logs:\n" << capture.Text();
   return Result(generated.status(), generated.ok() ? generated->text : "", diagnostics, 0, metrics,
-                generated.ok() ? generated->reasoning : "");
+                generated.ok() ? generated->reasoning : "",
+                generated.ok() ? generated->tool_calls : "[]");
 }
 
 void inferdroid_engine_cancel(uint64_t handle, uint64_t request_id) {
@@ -573,6 +623,7 @@ void inferdroid_result_free(InferDroidResult* result) {
   if (!result) return;
   free(result->text);
   free(result->reasoning);
+  free(result->tool_calls);
   free(result->diagnostics);
   free(result);
 }

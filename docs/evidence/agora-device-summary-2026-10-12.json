@@ -1,0 +1,64 @@
+{
+  "checked_at": "2026-10-12T22:31:22.929238+02:00",
+  "device": "Pixel 10",
+  "application_id": "dev.inferdroid",
+  "apk_sha256": "f5e9ef40146238b6db4d5f919be7b21e4066db243bdafeab816d392b034aad8f",
+  "installed_apk_matches_build": true,
+  "native_runtime_sha256": "19c409a1853bcc5c3b651b821ffb88e85bbedf330205941835a3441e5f018193",
+  "instrumentation": {
+    "passed": 34,
+    "failed": 0
+  },
+  "real_api_checks": {
+    "passed": 17,
+    "failed": 0
+  },
+  "multimodal_regressions": {
+    "passed": 4,
+    "failed": 0
+  },
+  "python_oracle_tests": {
+    "passed": 4,
+    "failed": 0
+  },
+  "gradle_and_ide_build": "passed",
+  "lint": {
+    "errors": 0,
+    "existing_warnings": 13
+  },
+  "agora_ui": {
+    "version": "2.1.0",
+    "version_code": 31,
+    "prompt": "Compute 17 multiplied by 23. Reply only with the result. Do not use tools.",
+    "final_answer": "391",
+    "separate_thinking_block": true,
+    "displayed_thinking_seconds": 22,
+    "evidence": "agora-ui-2026-10-12.png"
+  },
+  "limits": [
+    "The custom Agora provider omits Gemma reasoning controls; the saved server default is enabled.",
+    "A first fast automated input had mangled spacing and returned 51; clean verified input returned 391.",
+    "Basic typed function schemas only; no strict/forced tool calls or separate thinking budgets.",
+    "Only synthetic addition executed by the test client. External tools were not executed."
+  ],
+  "final_state": {
+    "server_running": true,
+    "require_key": true,
+    "default_thinking": true,
+    "cors": false,
+    "models_configured": [
+      "gemma-4-E2B-it_Google_Tensor_G5",
+      "sherpa-onnx-whisper-tiny",
+      "sherpa-onnx-supertonic-3-int8"
+    ],
+    "loaded_libraries": [
+      "libLiteRtDispatch_GoogleTensor.so",
+      "libedgetpu_litert.so",
+      "libinferdroid_litertlm.so",
+      "libsherpa-onnx-c-api.so",
+      "libonnxruntime.so"
+    ],
+    "active_work_wake_locks": 0,
+    "adb_forwards_remaining": 0
+  }
+}

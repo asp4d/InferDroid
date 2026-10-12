@@ -73,7 +73,54 @@ dependencies {
     implementation 'com.google.android.material:material:1.14.0'
 }
 
+def runtimeDirectory = rootProject.file('native/artifacts/arm64-v8a')
+def runtimeSources = [
+        'Inference adapter': rootProject.file('native/runtime_adapter.cc'),
+        'Inference API': rootProject.file('native/runtime_api.h'),
+        'Inference build': rootProject.file('native/BUILD.bazel')
+]
+def verifyNativeRuntime = tasks.register('verifyNativeRuntime') {
+    inputs.files(runtimeSources.values())
+    inputs.files(fileTree(runtimeDirectory))
+    doLast {
+        def rebuildMessage = 'Run scripts/build-native.sh before building the APK; see README.md.'
+        def versions = new File(runtimeDirectory, 'VERSIONS.txt')
+        def checksums = new File(runtimeDirectory, 'SHA256SUMS')
+        if (!versions.isFile() || !checksums.isFile()) {
+            throw new GradleException("Native runtime build metadata is missing. ${rebuildMessage}")
+        }
+        def sha256 = { File source ->
+            def digest = java.security.MessageDigest.getInstance('SHA-256')
+            source.withInputStream { stream ->
+                byte[] buffer = new byte[8192]
+                int count
+                while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+            }
+            digest.digest().encodeHex().toString()
+        }
+        def metadata = versions.readLines('UTF-8')
+        runtimeSources.each { label, source ->
+            if (!metadata.contains("${label} SHA-256 ${sha256(source)}".toString())) {
+                throw new GradleException("Native runtime is out of date for ${source.name}. ${rebuildMessage}")
+            }
+        }
+        def recordedHashes = [:]
+        checksums.eachLine('UTF-8') { line ->
+            def entry = line.split(/\s+/, 2)
+            if (entry.length == 2) recordedHashes[new File(entry[1]).name] = entry[0]
+        }
+        ['libinferdroid_litertlm.so', 'libLiteRtDispatch_GoogleTensor.so',
+         'libGemmaModelConstraintProvider.so'].each { name ->
+            def library = new File(runtimeDirectory, name)
+            if (!library.isFile() || recordedHashes[name] != sha256(library)) {
+                throw new GradleException("Native runtime library ${name} is missing or does not match its build metadata. ${rebuildMessage}")
+            }
+        }
+    }
+}
+
 def stageRuntimeLibraries = tasks.register('stageRuntimeLibraries', Sync) {
+    dependsOn(verifyNativeRuntime)
     from(rootProject.file('native/artifacts/arm64-v8a')) {
         include 'libLiteRtDispatch_GoogleTensor.so', 'libGemmaModelConstraintProvider.so'
     }

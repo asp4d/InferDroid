@@ -204,7 +204,7 @@ public final class OpenAiServer implements AutoCloseable {
                 synthesize(socket, input, output, body, headerTimeout);
                 return;
             }
-            ChatRequest chat = OpenAiProtocol.parse(body, modelSource, verbose);
+            ChatRequest chat = OpenAiProtocol.parse(body, modelSource, verbose, config.defaultThinking);
             if (modelSource.isEmpty()) throw new ApiError(503, "Choose the Gemma chat model in InferDroid first.",
                     "server_error", "chat_model_unavailable", "model");
             headerTimeout.cancel(false);
@@ -258,7 +258,13 @@ public final class OpenAiServer implements AutoCloseable {
                     event(output, new ApiError(500, "Native streaming content did not match the completed response.",
                             "server_error", "stream_mismatch", null).json());
                 } else {
-                    event(output, OpenAiProtocol.chunk(id, created, new JSONObject(), result.limitReached ? "length" : "stop", chat.includeUsage));
+                    if (!result.toolCalls.isEmpty() && !result.limitReached) {
+                        // Publish executable arguments only after a complete, validated decode.
+                        event(output, OpenAiProtocol.chunk(id, created,
+                                new JSONObject().put("tool_calls", OpenAiTools.wireCalls(result.toolCalls, true)),
+                                null, chat.includeUsage));
+                    }
+                    event(output, OpenAiProtocol.chunk(id, created, new JSONObject(), OpenAiProtocol.finishReason(result), chat.includeUsage));
                     if (chat.includeUsage) event(output, OpenAiProtocol.usageChunk(id, created, result));
                 }
                 done(output);

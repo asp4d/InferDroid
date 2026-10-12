@@ -62,6 +62,8 @@
     <string name="start_server">Start server</string>
     <string name="stop_server">Stop server</string>
     <string name="server_stopped">Local API stopped.</string>
+    <string name="default_api_thinking">Use thinking when the client omits reasoning controls</string>
+    <string name="default_api_thinking_help">For clients such as Agora’s custom OpenAI provider. Explicit reasoning controls override this default. Thinking and the answer share the output token limit. Stop the server to change this setting.</string>
     <string name="speech_label">Offline speech recognition</string>
     <string name="speech_help">Whisper tiny · multilingual · CPU. Import the verified speech model folder, then choose an audio file. Up to 25 MiB and 120 seconds. Audio stays on this device.</string>
     <string name="import_speech_model">Import speech model folder</string>

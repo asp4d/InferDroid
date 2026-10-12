@@ -1,0 +1,686 @@
+{
+  "started_at": "2026-10-12T20:21:04.384702+02:00",
+  "device": "Pixel 10",
+  "application_id": "dev.inferdroid",
+  "installed_version": "0.8.0",
+  "results": [
+    {
+      "name": "default_direct",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-e5ea477753d9478db5cb6cf33ee8aedc",
+        "created": 1791829264,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391\nANSWER: 391"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 32,
+          "completion_tokens": 11,
+          "total_tokens": 43
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391\nANSWER: 391"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 32,
+        "completion_tokens": 11,
+        "total_tokens": 43
+      },
+      "elapsed_s": 1.081
+    },
+    {
+      "name": "thinking_buffered_default_budget",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "enable_thinking": true
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391.",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-912d953b404748cd8047d4f05ed2697e",
+        "created": 1791829265,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391\nANSWER: 391",
+              "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 33,
+          "completion_tokens": 335,
+          "total_tokens": 368
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391\nANSWER: 391",
+        "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391."
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 335,
+        "total_tokens": 368
+      },
+      "elapsed_s": 17.902
+    },
+    {
+      "name": "thinking_live_sse",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": true,
+        "enable_thinking": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391.",
+      "first_content_s": 18.077,
+      "first_reasoning_s": 0.343,
+      "status": 200,
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 335,
+        "total_tokens": 368
+      },
+      "done": true,
+      "elapsed_s": 18.198
+    },
+    {
+      "name": "truncated_thoughts_buffered",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "enable_thinking": true,
+        "max_completion_tokens": 16
+      },
+      "text": "",
+      "reasoning": "\nThe user wants me to compute the product of 17 and",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-2353b07d91f74834b37fdefa04d728dc",
+        "created": 1791829301,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "\nThe user wants me to compute the product of 17 and"
+            },
+            "finish_reason": "length",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 33,
+          "completion_tokens": 16,
+          "total_tokens": 49
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": "\nThe user wants me to compute the product of 17 and"
+      },
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 16,
+        "total_tokens": 49
+      },
+      "elapsed_s": 1.218
+    },
+    {
+      "name": "truncated_thoughts_sse",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": true,
+        "enable_thinking": true,
+        "max_completion_tokens": 16,
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "",
+      "reasoning": "\nThe user wants me to compute the product of 17 and",
+      "first_content_s": null,
+      "first_reasoning_s": 0.336,
+      "status": 200,
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 16,
+        "total_tokens": 49
+      },
+      "done": true,
+      "elapsed_s": 1.22
+    },
+    {
+      "name": "explicit_disable_after_truncation",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "enable_thinking": false
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-92931753a0c343d391e762292a8054d3",
+        "created": 1791829304,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391\nANSWER: 391"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 32,
+          "completion_tokens": 11,
+          "total_tokens": 43
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391\nANSWER: 391"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 32,
+        "completion_tokens": 11,
+        "total_tokens": 43
+      },
+      "elapsed_s": 0.91
+    },
+    {
+      "name": "assistant_history_echo",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          },
+          {
+            "role": "assistant",
+            "content": "391\nANSWER: 391"
+          },
+          {
+            "role": "user",
+            "content": "What was the product? Reply with only the number."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false
+      },
+      "text": "391",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-96e98ac2ca0e4e25afeac289e6eedeb3",
+        "created": 1791829305,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 63,
+          "completion_tokens": 4,
+          "total_tokens": 67
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 63,
+        "completion_tokens": 4,
+        "total_tokens": 67
+      },
+      "elapsed_s": 0.511
+    },
+    {
+      "name": "assistant_history_without_thoughts",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          },
+          {
+            "role": "assistant",
+            "content": "391\nANSWER: 391"
+          },
+          {
+            "role": "user",
+            "content": "What was the product? Reply with only the number."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false
+      },
+      "text": "391",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-270a54bb7d5a4a34a8df4c7b50462655",
+        "created": 1791829305,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 63,
+          "completion_tokens": 4,
+          "total_tokens": 67
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 63,
+        "completion_tokens": 4,
+        "total_tokens": 67
+      },
+      "elapsed_s": 0.521
+    },
+    {
+      "name": "invalid_thinking_type",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "enable_thinking": "true"
+      },
+      "text": "",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "enable_thinking must be a boolean.",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "enable_thinking"
+        }
+      },
+      "elapsed_s": 0.028
+    },
+    {
+      "name": "invalid_output_cap",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "max_completion_tokens": 4097
+      },
+      "text": "",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "max_completion_tokens is outside the supported range [1.0, 4096.0].",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "max_completion_tokens"
+        }
+      },
+      "elapsed_s": 0.023
+    },
+    {
+      "name": "expanded_4096_cap",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "enable_thinking": true,
+        "max_completion_tokens": 4096
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391.",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-5c4290fb3c1a41238ef4c8dea7fc30dd",
+        "created": 1791829306,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391\nANSWER: 391",
+              "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 33,
+          "completion_tokens": 335,
+          "total_tokens": 368
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391\nANSWER: 391",
+        "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $17 = 20 - 3$ or $17 = 10 + 7$.\n        $17 \\times 23 = (20 - 3) \\times 23$\n        $= 20 \\times 23 - 3 \\times 23$\n        $= 460 - 69$\n        $460 - 69 = 391$\n\n3.  **Final result:** 391."
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 335,
+        "total_tokens": 368
+      },
+      "elapsed_s": 17.928
+    },
+    {
+      "name": "disconnect_during_native_reasoning",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Explain every step when counting the integers from 1 to 200."
+          }
+        ],
+        "enable_thinking": true,
+        "stream": true,
+        "max_completion_tokens": 4096,
+        "temperature": 0
+      },
+      "status": 200,
+      "elapsed_s": 0.365,
+      "disconnected_after_reasoning": true
+    },
+    {
+      "name": "recovery_after_native_disconnect",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false
+      },
+      "text": "",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 429,
+      "response": {
+        "error": {
+          "message": "Inference is busy loading, generating, or stopping. Retry when idle.",
+          "type": "rate_limit_error",
+          "code": "engine_busy",
+          "param": null
+        }
+      },
+      "elapsed_s": 0.016
+    },
+    {
+      "name": "recovery_after_native_disconnect",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-5b33f8b83a7e4a7395117fedad990394",
+        "created": 1791829324,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391\nANSWER: 391"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 32,
+          "completion_tokens": 11,
+          "total_tokens": 43
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391\nANSWER: 391"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 32,
+        "completion_tokens": 11,
+        "total_tokens": 43
+      },
+      "elapsed_s": 0.899
+    }
+  ],
+  "passed": true
+}

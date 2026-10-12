@@ -23,6 +23,8 @@ typedef struct {
     int limit_reached;
     char* reasoning;
     size_t reasoning_size;
+    char* tool_calls;  // JSON array of complete function calls; never executable server actions.
+    size_t tool_calls_size;
 } InferDroidResult;
 
 __attribute__((visibility("default")))

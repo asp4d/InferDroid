@@ -68,7 +68,9 @@ LiteRT $LITERT_COMMIT
 Bazel 7.6.1
 NDK 30.0.14904198 (r30-beta1)
 Target android_arm64 / arm64-v8a
-Inference adapter SHA-256 $(sha256sum "$PROJECT_ROOT/native/runtime_adapter.cc" | cut -d ' ' -f 1)
+Inference adapter SHA-256 $(sha256sum "$SRC/inferdroid/runtime_adapter.cc" | cut -d ' ' -f 1)
+Inference API SHA-256 $(sha256sum "$SRC/inferdroid/runtime_api.h" | cut -d ' ' -f 1)
+Inference build SHA-256 $(sha256sum "$SRC/inferdroid/BUILD.bazel" | cut -d ' ' -f 1)
 EOF
 sha256sum "$OUT"/*.so > "$OUT/SHA256SUMS"
 echo "Native runtime ready in $OUT"

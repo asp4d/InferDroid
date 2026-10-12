@@ -124,16 +124,18 @@ Java_dev_inferdroid_engine_NativeInference_generateNative(
   if (!CheckResult(env, result)) return nullptr;
   jclass result_class = env->FindClass("dev/inferdroid/engine/GenerationResult");
   if (!result_class) return nullptr;
-  jmethodID constructor = env->GetMethodID(result_class, "<init>", "(ZZ[B[B[BIIZ)V");
+  jmethodID constructor = env->GetMethodID(result_class, "<init>", "(ZZ[B[B[B[BIIZ)V");
   if (!constructor) return nullptr;
   auto text = Bytes(env, result->text, result->text_size);
   if (env->ExceptionCheck()) return nullptr;
   auto reasoning = Bytes(env, result->reasoning, result->reasoning_size);
   if (env->ExceptionCheck()) return nullptr;
+  auto tool_calls = Bytes(env, result->tool_calls, result->tool_calls_size);
+  if (env->ExceptionCheck()) return nullptr;
   auto diagnostics = Bytes(env, result->diagnostics, result->diagnostics_size);
   if (env->ExceptionCheck()) return nullptr;
   return env->NewObject(result_class, constructor, static_cast<jboolean>(result->success),
-                       static_cast<jboolean>(result->cancelled), text, reasoning, diagnostics,
+                       static_cast<jboolean>(result->cancelled), text, reasoning, tool_calls, diagnostics,
                        result->prompt_tokens, result->completion_tokens,
                        static_cast<jboolean>(result->limit_reached));
 }

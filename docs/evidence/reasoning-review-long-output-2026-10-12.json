@@ -1,0 +1,103 @@
+{
+  "started_at": "2026-10-12T20:29:32.490741+02:00",
+  "device": "Pixel 10",
+  "application_id": "dev.inferdroid",
+  "results": [
+    {
+      "name": "native_output_beyond_1024",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. Put your final answer on a line formatted ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Count the orders of four distinct people A, B, C, D in a line subject to all these rules: A is before C; D is immediately before B; C is not last. How many orders are valid?"
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": true,
+        "enable_thinking": true,
+        "max_completion_tokens": 1280,
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "",
+      "reasoning": "\nLet the four distinct people be A, B, C, D.\nWe are looking for the number of permutations (orders) of these four people, which are sequences of length 4.\nThe total number of permutations is $4! = 24$.\n\nThe rules are:\n1. A is before C (A < C).\n2. D is immediately before B (DB is a block).\n3. C is not last (C is not in position 4).\n\nLet's analyze the constraints.\n\nConstraint 2: D is immediately before B. We treat (DB) as a single block, let's call it $X$.\nThe elements we are arranging are {A, C, X}. We are arranging 3 items.\nThe possible arrangements of {A, C, X} are $3! = 6$:\n1. A C X $\\rightarrow$ A C DB\n2. A X C $\\rightarrow$ A DB C\n3. C A X $\\rightarrow$ C A DB\n4. C X A $\\rightarrow$ C DB A\n5. X A C $\\rightarrow$ DB A C\n6. X C A $\\rightarrow$ DB C A\n\nNow we apply the remaining constraints to these arrangements.\n\nConstraint 1: A is before C (A < C).\n\nLet's check the 6 arrangements against A < C:\n1. A C DB: A is before C. (Valid)\n2. A DB C: A is before C. (Valid)\n3. C A DB: C is before A. (Invalid)\n4. C DB A: C is before A. (Invalid)\n5. DB A C: A is before C. (Valid)\n6. DB C A: A is before C. (Valid)\n\nSo, we have 4 arrangements satisfying A < C and D immediately before B:\n1. A C DB\n2. A DB C\n3. DB A C\n4. DB C A\n\nConstraint 3: C is not last (C is not in position 4).\n\nLet's check these 4 arrangements against C not being last:\n1. A C DB: C is in position 2. (Valid)\n2. A DB C: C is in position 3. (Valid)\n3. DB A C: C is in position 4. (Invalid)\n4. DB C A: C is in position 3. (Valid)\n\nThe valid orders are:\n1. A C DB (A, C, D, B)\n2. A DB C (A, D, B, C)\n3. DB C A (D, B, C, A)\n\nLet's verify these three orders against all rules:\n\nOrder 1: A C D B\n1. A before C? Yes (1st before 2nd).\n2. D immediately before B? Yes (3rd before 4th).\n3. C not last? Yes (C is 2nd).\nValid.\n\nOrder 2: A D B C\n1. A before C? Yes (1st before 4th).\n2. D immediately before B? Yes (2nd before 3rd).\n3. C not last? Yes (C is 4th? Wait, C is in position 4. Let's recheck the arrangement: A, D, B, C. C is last. Invalid.)\n\nLet's re-examine the 6 arrangements derived from {A, C, X} where X=DB. The arrangement is a permutation of {A, C, X}.\n\nThe positions are 1, 2, 3, 4.\n\nCase 1: X is in position 1 (DB A C)\nOrder: D B A C.\nRule 1 (A < C): A is 3rd, C is 4th. Valid.\nRule 3 (C not last): C is 4th. Invalid.\n\nCase 2: X is in position 2 (A X C or C X A)\nSubcase 2a: A X C $\\rightarrow$ A D B C.\nOrder: A D B C.\nRule 1 (A < C): A is 1st, C is 4th. Valid.\nRule 3 (C not last): C is 4th. Invalid.\n\nSubcase 2b: C X A $\\rightarrow$ C D B A.\nOrder: C D B A.\nRule 1 (A < C): C is 1st, A is 4th. Invalid.\n\nCase 3: X is in position 3 (A C X or C A X)\nSubcase 3a: A C X $\\rightarrow$ A C D B.\nOrder: A C D B.\nRule 1 (A < C): A is 1st, C is 2nd. Valid.\nRule 3 (C not last): C is 2nd. Valid. (Valid order: A C D B)\n\nSubcase 3b: C A X $\\rightarrow$ C A D B.\nOrder: C A D B.\nRule 1 (A < C): C is 1st, A is 2nd. Invalid.\n\nCase 4: X is in position 4 (A C X or C A X)\nSubcase 4a: A C X $\\rightarrow$ A C D B. (Already covered in Case 3a, X is in position 3). Wait, this is confusing. Let's stick to the permutation of {A, C, X}.\n\nThe 6 permutations of {A, C, X} correspond to the relative order of A, C, and the block X.\n\n1. A C X $\\rightarrow$ A C D B. (A<C: Yes. C not last: Yes. Valid)\n2. A X C $\\rightarrow$ A D B C.",
+      "first_content_s": null,
+      "first_reasoning_s": 0.432,
+      "status": 200,
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 75,
+        "completion_tokens": 1280,
+        "total_tokens": 1355
+      },
+      "done": true,
+      "elapsed_s": 126.336
+    },
+    {
+      "name": "recovery_after_long_output",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Answer concisely. End with ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "seed": 42,
+        "stream": false,
+        "enable_thinking": false
+      },
+      "text": "391\nANSWER: 391",
+      "reasoning": "",
+      "first_content_s": null,
+      "first_reasoning_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-b781af74339c402cbbc68eff075bff01",
+        "created": 1791829899,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "391\nANSWER: 391"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 32,
+          "completion_tokens": 11,
+          "total_tokens": 43
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "391\nANSWER: 391"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 32,
+        "completion_tokens": 11,
+        "total_tokens": 43
+      },
+      "elapsed_s": 1.634
+    }
+  ],
+  "passed": true
+}

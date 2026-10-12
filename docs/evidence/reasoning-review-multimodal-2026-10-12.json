@@ -1,0 +1,75 @@
+{
+  "started_at": "2026-10-12T20:23:40.120015+02:00",
+  "device": "Pixel 10",
+  "application_id": "dev.inferdroid",
+  "results": [
+    {
+      "name": "model_discovery",
+      "status": 200,
+      "elapsed_s": 0.044,
+      "response": {
+        "object": "list",
+        "data": [
+          {
+            "id": "gemma-4-E2B-it_Google_Tensor_G5",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-whisper-tiny",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-supertonic-3-int8",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "authentication_required",
+      "status": 401,
+      "elapsed_s": 0.02,
+      "response": {
+        "error": {
+          "message": "Supply the local API key as Authorization: Bearer <key>.",
+          "type": "authentication_error",
+          "code": "invalid_api_key",
+          "param": null
+        }
+      }
+    },
+    {
+      "name": "native_vision_blue-square.png",
+      "status": 200,
+      "elapsed_s": 2.02,
+      "response": {
+        "id": "chatcmpl-90697ca15a624d4aae6d133f178e15b4",
+        "created": 1791829420,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "42"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 293,
+          "completion_tokens": 3,
+          "total_tokens": 296
+        }
+      }
+    }
+  ]
+}

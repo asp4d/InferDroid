@@ -35,7 +35,7 @@ subscription is involved.
 | ASR model ID | `sherpa-onnx-whisper-tiny` |
 | TTS model ID | `sherpa-onnx-supertonic-3-int8` |
 
-Port, key, authentication choice, and CORS choice are saved privately. Stop
+Port, key, authentication choice, CORS choice, and the default thinking mode are saved privately. Stop
 the listener before changing them or choosing a different model. **Generate
 new key** replaces the saved key; clients must use it after the next start.
 Authentication can be explicitly disabled for clients that require it, but
@@ -61,8 +61,9 @@ was observed on the reference Pixel. See the
 
 Client apps need their own Network permission. Some clients also disallow
 cleartext HTTP through their network-security policy. Configuring InferDroid
-cannot override a client's policy; test each client separately. Agora,
-FitBuddy, and RPClient have not yet been verified with this server.
+cannot override a client's policy; test each client separately. See
+[Agora configuration and compatibility](agora-compatibility.md). FitBuddy
+and RPClient have not yet been verified with this server.
 
 CORS is disabled initially. Enabling it permits origins with
 `Access-Control-Allow-Origin: *`, `GET, POST, OPTIONS`, and the Authorization
@@ -82,13 +83,13 @@ examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.
 | Endpoint | Behavior |
 | --- | --- |
 | `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic models, including while unloaded; unconfigured engines are omitted |
-| `POST /v1/chat/completions` | Text/image input, one text completion or incremental SSE when `stream: true` |
+| `POST /v1/chat/completions` | Text/image input and client-executed functions, buffered or SSE when `stream: true` |
 | `POST /v1/audio/transcriptions` | Offline CPU file transcription; multipart, JSON/text/verbose JSON response |
 | `POST /v1/audio/speech` | Offline CPU TTS; JSON request, buffered 24 kHz mono PCM16 WAV/raw PCM response |
 | `OPTIONS` on any endpoint | CORS preflight when CORS is enabled |
 
 Requests must specify the exact model ID and 1–128 messages ending in a user
-turn. Roles are `user`, `assistant`, and leading `system` instructions;
+turn or the final result of a completed tool round. Roles are `user`, `assistant`, `tool`, and leading `system` instructions;
 leading `developer` instructions map to `system`. Content accepts a text
 string or an array of `{"type":"text","text":"..."}` parts and, for user
 turns, `{"type":"image_url","image_url":{"url":"data:image/png;base64,..."}}`
@@ -98,7 +99,8 @@ four images across the conversation are accepted, limited to 2 MiB each,
 and API file paths return 400; `detail` must be `auto` or omitted.
 See [image understanding](image-understanding.md) for examples, lifecycle,
 normalization, and the measured NPU encoder/CPU adapter arrangement. Optional
-message `name` fields are accepted as metadata and are not passed to Gemma.
+message `name` fields are accepted as metadata. On tool results, an optional
+name must match the function identified by `tool_call_id`.
 The entire supplied history reaches LiteRT-LM's model chat template; it is
 not flattened into a last-message prompt. Each request creates a fresh
 conversation and KV session while retaining the loaded engine.
@@ -106,7 +108,11 @@ conversation and KV session while retaining the loaded engine.
 | Parameter | Supported values |
 | --- | --- |
 | `stream` | Boolean, default `false` |
-| `enable_thinking` | Boolean, default `false`; local extension enabling Gemma's native thinking mode |
+| `enable_thinking` | Boolean; overrides the saved API thinking default (initially `false`) |
+| `reasoning_effort` | `none` disables thinking; `minimal`, `low`, `medium`, `high`, `xhigh`, `max` enable it |
+| `reasoning` | Object with optional `enabled` boolean and/or `effort` string; its presence opts into thinking unless explicitly disabled |
+| `tools` | Up to 128 client-executed function definitions; at most 256 KiB total |
+| `tool_choice` | `auto` or `none`; defaults to `auto` with functions, otherwise `none` |
 | `max_tokens` or `max_completion_tokens` | Integer 1–4096; default 256, or 2048 with thinking enabled; supply only one |
 | `temperature` | 0–2; zero selects greedy sampling |
 | `top_p` | Greater than 0 and at most 1 |
@@ -114,19 +120,20 @@ conversation and KV session while retaining the loaded engine.
 | `n` | 1 |
 | `stream_options.include_usage` | Boolean, with `stream: true` |
 | `user` | Optional string metadata; not passed to the model or logged |
+| `prompt_cache_key` | Optional metadata string of at most 256 characters; no cross-request prompt cache is used |
 
 Omitted sampling parameters preserve the verified upstream defaults. Sampling
 uses the pinned runtime's existing CPU sampler with the same NPU inference
 backend; this is not a CPU inference fallback. Native float precision limits
-apply to sampling values. Compatibility defaults `tools: []`,
-`tool_choice: "none"`, `response_format: {"type":"text"}`, zero
+apply to sampling values. `response_format: {"type":"text"}`, zero
 frequency/presence penalties, and `logprobs: false` are also accepted.
-Other parameters, tool calls, stop sequences, log probabilities, structured
+Other parameters, forced tool choices, strict schemas, stop sequences, log probabilities, structured
 output, inline audio content, and multiple candidates receive explicit errors.
 
 Non-streaming responses contain `id`, `object: "chat.completion"`, `created`,
 `model`, and one assistant message in `choices`. `finish_reason` is `stop`,
-or `length` when the measured decode count reaches the output cap. Usage comes
+`tool_calls` for complete function calls, or `length` when the measured decode
+count reaches the output cap. Usage comes
 from upstream prefill/decode measurements, including the model's chat template;
 the server does not estimate tokens from characters. If measurements are
 unavailable, non-streaming usage is omitted.
@@ -142,9 +149,19 @@ as a JSON error in a data event followed by `[DONE]`; it does not claim success.
 ## Optional thinking
 
 Set `enable_thinking: true` on a chat request to enable Gemma's thinking mode for
-that request only. It is disabled when omitted or false. The flag reaches the
+that request only. When clients omit all reasoning controls, the saved
+**Use thinking when the client omits reasoning controls** setting applies.
+It starts disabled. An explicit false/`none` overrides that setting. The flag reaches the
 pinned LiteRT-LM conversation configuration; clients do not need to insert
 special tokens into system prompts. The UI continues using direct responses.
+
+`reasoning_effort` and `reasoning.effort` are compatibility controls for the same
+binary switch; Gemma does not implement distinct effort levels. Conflicting
+controls return 400. Separate reasoning token budgets (`reasoning.max_tokens`
+or `thinking_budget`) are unsupported: thinking and the answer share the
+request's output cap. Agora 2.1.0's custom provider does not transmit its thinking
+toggle for this Gemma model; use the saved server default as described in
+[Agora compatibility](agora-compatibility.md).
 
 ```json
 {
@@ -177,13 +194,48 @@ For subsequent requests, send the previous assistant's final `content` as
 history. An assistant history message may also include string or null
 `reasoning_content` when a client echoes the returned message, but InferDroid
 discards that field before prefill. Other roles cannot use it. Reasoning and the
-thinking setting do not carry over automatically to later requests. This follows
+explicit per-request thinking setting does not carry over to later requests;
+the saved server default remains in effect. This follows
 [Gemma's multi-turn guidance](https://ai.google.dev/gemma/docs/capabilities/thinking#multi-turn-example-with-thought-stripping).
 
 Thinking can increase latency substantially, and a higher cap is not a guarantee
 that every response finishes. See the [Pixel reasoning experiment](reasoning-verification.md)
 for the measured tradeoffs on the exact G5 model package and the
 [native thinking API verification](thinking-api-verification.md) for implementation checks.
+
+## Client-executed functions
+
+Supply OpenAI-style `tools` entries with `type: "function"` and a `function`
+object containing `name`, optional `description`, and optional `parameters`.
+Omitting parameters defines a function with no arguments. Names contain
+1–64 ASCII letters, digits, underscores or hyphens and must be unique.
+Parameters use an explicit `object` schema with typed properties, optional
+`required` names, and homogeneous `items` schemas for arrays. Nested objects,
+string enums and nullable types are accepted. Schema references/combinators
+and `strict: true` return explicit errors; argument generation is unconstrained.
+Validate arguments in the client before execution.
+
+The NPU receives declarations through the pinned Gemma template. A completed
+response contains `message.tool_calls`, each with an ID, `type: "function"`,
+and `function.name`/`function.arguments` (a JSON-object string). Tool-only
+assistant replies have `content: null`. SSE emits the complete call array as
+`delta.tool_calls`, with an `index` for each call, before the terminal
+`finish_reason: "tool_calls"`. Thoughts and ordinary text still arrive live;
+executable arguments wait until decode completion. Length-limited responses
+never expose executable calls.
+
+The client executes the functions, echoes the assistant message, and appends
+one `role: "tool"` message per call with the matching `tool_call_id` and a
+string/text-part `content` result. Results can arrive in any order. IDs must be
+unique across the supplied history; missing, orphaned or duplicate results
+return 400 before inference. A following request can end in the completed tool
+round. Assistant `reasoning_content` is accepted and stripped as usual.
+`tool_choice: "none"` accepts definitions but excludes them from generation.
+
+InferDroid never executes a requested tool or contacts a search provider.
+Tool permissions and execution remain with the client. This implements the
+client-side mode in the [handoff](../pixel_local_ai_server_codex_handoff.md#18-future-tool-layer-and-optional-server-side-web-search);
+server-side orchestration is still future work.
 
 ## Admission, cancellation, and transport limits
 

@@ -62,6 +62,8 @@
     <string name="start_server">Avvia server</string>
     <string name="stop_server">Arresta server</string>
     <string name="server_stopped">API locale arrestata.</string>
+    <string name="default_api_thinking">Usa il ragionamento se il client non lo specifica</string>
+    <string name="default_api_thinking_help">Per client come il provider OpenAI personalizzato di Agora. I controlli espliciti del client prevalgono su questa impostazione. Ragionamento e risposta condividono il limite di token. Arresta il server per cambiare questa impostazione.</string>
     <string name="speech_label">Riconoscimento vocale offline</string>
     <string name="speech_help">Whisper tiny · multilingue · CPU. Importa la cartella del modello verificato, poi scegli un file audio. Fino a 25 MiB e 120 secondi. L\'audio rimane sul dispositivo.</string>
     <string name="import_speech_model">Importa cartella modello vocale</string>

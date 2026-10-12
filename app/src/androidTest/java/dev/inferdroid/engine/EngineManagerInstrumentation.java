@@ -39,7 +39,8 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 "imageDecodeBoundsAndFormats", "apiImagePartsAndHistory", "apiImageValidationAndLimits",
                 "apiImageStreaming", "apiImageDisconnectAndRecovery", "splitUtf8Reasoning",
                 "apiThinkingParametersAndHistory", "apiThinkingStreaming", "apiThinkingTruncationAndRecovery",
-                "apiThinkingDisconnectAndRecovery"};
+                "apiThinkingDisconnectAndRecovery", "apiClientToolsBufferedAndHistory", "apiClientToolsStreamingAndTruncation",
+                "apiClientToolsValidation", "apiReasoningCompatibilityControls"};
         for (int index = 0; index < names.length; index++) {
             Bundle status = new Bundle();
             status.putString("class", getClass().getName());

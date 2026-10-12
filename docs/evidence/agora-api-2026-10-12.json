@@ -1,0 +1,1694 @@
+{
+  "started_at": "2026-10-12T21:27:58.555230+02:00",
+  "device": "Pixel 10",
+  "agora_version_tested": "2.1.0",
+  "method": "Synthetic requests using Agora's Chat Completions wire format; only local test_add executed by this script.",
+  "server_default_thinking": true,
+  "results": [
+    {
+      "name": "agora_custom_buffered",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "prompt_cache_key": "synthetic-agora-conversation"
+      },
+      "text": "",
+      "reasoning": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+      "tool_calls": [
+        {
+          "id": "call_8280c9057b2a4312b86efebfd61010ca",
+          "type": "function",
+          "function": {
+            "name": "test_add",
+            "arguments": "{\"a\":17,\"b\":23}"
+          }
+        }
+      ],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-0b5d3f3fc7ae464d819dc88f7226f300",
+        "created": 1791833278,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": null,
+              "reasoning_content": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+              "tool_calls": [
+                {
+                  "id": "call_8280c9057b2a4312b86efebfd61010ca",
+                  "type": "function",
+                  "function": {
+                    "name": "test_add",
+                    "arguments": "{\"a\":17,\"b\":23}"
+                  }
+                }
+              ]
+            },
+            "finish_reason": "tool_calls",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 113,
+          "completion_tokens": 86,
+          "total_tokens": 199
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+        "tool_calls": [
+          {
+            "id": "call_8280c9057b2a4312b86efebfd61010ca",
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "arguments": "{\"a\":17,\"b\":23}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "usage": {
+        "prompt_tokens": 113,
+        "completion_tokens": 86,
+        "total_tokens": 199
+      },
+      "elapsed_s": 6.301
+    },
+    {
+      "name": "agora_custom_streamed",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": true,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "",
+      "reasoning": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+      "tool_calls": [
+        {
+          "id": "call_52571f78625f480bac195547512a3d37",
+          "type": "function",
+          "function": {
+            "name": "test_add",
+            "arguments": "{\"a\":17,\"b\":23}"
+          },
+          "index": 0
+        }
+      ],
+      "passed": true,
+      "frames": [
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "The"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " user"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " wants"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " to"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " calculate"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " "
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "1"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "7"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " plus"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " "
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "2"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "3"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " using"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " provided"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "test"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "_"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "add"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " tool"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "."
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "I"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " need"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " to"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " call"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "test"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "_"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "add"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " with"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "a"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "="
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "1"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "7"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " and"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "b"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "="
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "2"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "3"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`."
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "After"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " getting"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " result"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": ","
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " I"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " will"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " reply"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " with"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " answer"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " in"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " specified"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " format"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "."
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "tool_calls": [
+                  {
+                    "id": "call_52571f78625f480bac195547512a3d37",
+                    "type": "function",
+                    "function": {
+                      "name": "test_add",
+                      "arguments": "{\"a\":17,\"b\":23}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "tool_calls",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-398813d37423401e915797b83a69267d",
+          "created": 1791833285,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 113,
+            "completion_tokens": 86,
+            "total_tokens": 199
+          }
+        }
+      ],
+      "first_reasoning_s": 0.354,
+      "first_content_s": null,
+      "first_tool_calls_s": 4.832,
+      "status": 200,
+      "finish_reason": "tool_calls",
+      "usage": {
+        "prompt_tokens": 113,
+        "completion_tokens": 86,
+        "total_tokens": 199
+      },
+      "done": true,
+      "elapsed_s": 4.838
+    },
+    {
+      "name": "agora_tool_result_round_trip",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "reasoning_content": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+            "tool_calls": [
+              {
+                "id": "call_8280c9057b2a4312b86efebfd61010ca",
+                "type": "function",
+                "function": {
+                  "name": "test_add",
+                  "arguments": "{\"a\":17,\"b\":23}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_8280c9057b2a4312b86efebfd61010ca",
+            "content": "40"
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": true,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "ANSWER: 40",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "ANSWER"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": ":"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": " "
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "4"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "0"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "stop",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-810f473123e9483fbeba47719d76d02a",
+          "created": 1791833289,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 148,
+            "completion_tokens": 6,
+            "total_tokens": 154
+          }
+        }
+      ],
+      "first_reasoning_s": null,
+      "first_content_s": 0.279,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 148,
+        "completion_tokens": 6,
+        "total_tokens": 154
+      },
+      "done": true,
+      "elapsed_s": 0.743
+    },
+    {
+      "name": "parallel_tool_history",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "After receiving both function results, sum their results and reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Add 17 and 23 with test_add; also add 1 and 2 with test_add. Report the sum of both results."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_left",
+                "type": "function",
+                "function": {
+                  "name": "test_add",
+                  "arguments": "{\"a\":17,\"b\":23}"
+                }
+              },
+              {
+                "id": "call_right",
+                "type": "function",
+                "function": {
+                  "name": "test_add",
+                  "arguments": "{\"a\":1,\"b\":2}"
+                }
+              }
+            ],
+            "reasoning_content": "Synthetic prior thought; do not prefill."
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_right",
+            "content": "3"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_left",
+            "content": "40"
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "none",
+        "enable_thinking": false
+      },
+      "text": "3 + 40 = 43",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": false,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-1118f03dd76942719d5c04bd902f9905",
+        "created": 1791833290,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "3 + 40 = 43"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 10,
+          "total_tokens": 140
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "3 + 40 = 43"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 10,
+        "total_tokens": 140
+      },
+      "elapsed_s": 0.918
+    }
+  ]
+}

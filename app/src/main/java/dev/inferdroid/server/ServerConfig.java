@@ -10,8 +10,13 @@ public final class ServerConfig {
     public final String apiKey;
     public final boolean requireKey;
     public final boolean cors;
+    public final boolean defaultThinking;
 
     public ServerConfig(int port, String apiKey, boolean requireKey, boolean cors) {
+        this(port, apiKey, requireKey, cors, false);
+    }
+
+    public ServerConfig(int port, String apiKey, boolean requireKey, boolean cors, boolean defaultThinking) {
         // Port zero is useful for isolated instrumentation tests, never offered in the UI.
         if (port < 0 || port > 65535) throw new IllegalArgumentException("Port must be between 1 and 65535.");
         if (requireKey && (apiKey == null || apiKey.isEmpty() || apiKey.length() > 256
@@ -22,6 +27,7 @@ public final class ServerConfig {
         this.apiKey = apiKey == null ? "" : apiKey;
         this.requireKey = requireKey;
         this.cors = cors;
+        this.defaultThinking = defaultThinking;
     }
 
     public static String generateKey() {

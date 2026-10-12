@@ -104,6 +104,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     private ImageButton apiKeyVisibility;
     private boolean apiKeyVisible;
     private CheckBox requireKey;
+    private CheckBox defaultApiThinking;
     private CheckBox cors;
     private Button startServer;
     private Button stopServer;
@@ -261,6 +262,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         apiKeyVisibility = findViewById(R.id.toggle_api_key_visibility);
         requireKey = findViewById(R.id.require_api_key);
         cors = findViewById(R.id.cors);
+        defaultApiThinking = findViewById(R.id.default_api_thinking);
         startServer = findViewById(R.id.start_server);
         stopServer = findViewById(R.id.stop_server);
         regenerateKey = findViewById(R.id.regenerate_key);
@@ -274,6 +276,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         apiKeyVisibility.setOnClickListener(view -> setApiKeyVisible(!apiKeyVisible));
         requireKey.setChecked(serverPreferences.getBoolean("require_key", true));
         cors.setChecked(serverPreferences.getBoolean("cors", false));
+        defaultApiThinking.setChecked(serverPreferences.getBoolean("default_thinking", false));
         startServer.setOnClickListener(view -> startLocalServer());
         stopServer.setOnClickListener(view -> { if (service != null) service.stopServer(); });
         regenerateKey.setOnClickListener(view -> {
@@ -507,10 +510,12 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         try {
             int port = Integer.parseInt(serverPort.getText().toString().trim());
             if (port < 1 || port > 65535) throw new IllegalArgumentException(getString(R.string.invalid_port));
-            ServerConfig config = new ServerConfig(port, apiKey.getText().toString(), requireKey.isChecked(), cors.isChecked());
+            ServerConfig config = new ServerConfig(port, apiKey.getText().toString(), requireKey.isChecked(), cors.isChecked(),
+                    defaultApiThinking.isChecked());
             boolean logs = verbose.isChecked();
             serverPreferences.edit().putInt("port", port).putString("api_key", config.apiKey)
-                    .putBoolean("require_key", config.requireKey).putBoolean("cors", config.cors).apply();
+                    .putBoolean("require_key", config.requireKey).putBoolean("cors", config.cors)
+                    .putBoolean("default_thinking", config.defaultThinking).apply();
             withNotificationPermission(() -> {
                 try {
                     service.startServer(config, source, logs);
@@ -635,6 +640,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         serverPort.setEnabled(!serving);
         apiKey.setEnabled(!serving);
         requireKey.setEnabled(!serving);
+        defaultApiThinking.setEnabled(!serving);
         cors.setEnabled(!serving);
         regenerateKey.setEnabled(!serving);
         boolean hasSpeechModel = service != null && service.hasSpeechModel();

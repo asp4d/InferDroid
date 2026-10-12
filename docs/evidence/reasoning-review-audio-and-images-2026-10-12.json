@@ -1,0 +1,181 @@
+{
+  "started_at": "2026-10-12T20:27:57.906459+02:00",
+  "device": "Pixel 10",
+  "application_id": "dev.inferdroid",
+  "results": [
+    {
+      "name": "model_discovery",
+      "status": 200,
+      "elapsed_s": 0.049,
+      "response": {
+        "object": "list",
+        "data": [
+          {
+            "id": "gemma-4-E2B-it_Google_Tensor_G5",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-whisper-tiny",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-supertonic-3-int8",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "authentication_required",
+      "status": 401,
+      "elapsed_s": 0.024,
+      "response": {
+        "error": {
+          "message": "Supply the local API key as Authorization: Bearer <key>.",
+          "type": "authentication_error",
+          "code": "invalid_api_key",
+          "param": null
+        }
+      }
+    },
+    {
+      "name": "native_multiple_images",
+      "status": 200,
+      "elapsed_s": 4.802,
+      "response": {
+        "id": "chatcmpl-cbc81efd67264919b9d7fac70d9d019a",
+        "created": 1791829678,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Here are the descriptions for the shapes in each image:\n\n**Image 1:**\n*   **Geometric Shape:** Square\n*   **Color:** Blue\n\n**Image 2:**\n*   **Geometric Shape:** Circle\n*   **Color:** Red"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 568,
+          "completion_tokens": 54,
+          "total_tokens": 622
+        }
+      }
+    },
+    {
+      "name": "animated_image_rejected",
+      "status": 400,
+      "elapsed_s": 0.028,
+      "response": {
+        "error": {
+          "message": "Animated images are unsupported; send a still image.",
+          "type": "invalid_request_error",
+          "code": "invalid_image",
+          "param": "messages[0].content[1].image_url.url"
+        }
+      }
+    },
+    {
+      "name": "native_tts_it_wav",
+      "status": 200,
+      "elapsed_s": 3.24,
+      "bytes": 223154,
+      "request": {
+        "model": "tts-1",
+        "input": "Ciao, questa e una prova della sintesi vocale locale.",
+        "voice": "F1",
+        "language": "it",
+        "response_format": "wav"
+      },
+      "sample_rate": 24000,
+      "duration_s": 4.648,
+      "peak_pcm16": 12054
+    },
+    {
+      "name": "native_tts_en_pcm",
+      "status": 200,
+      "elapsed_s": 1.759,
+      "bytes": 174766,
+      "request": {
+        "model": "tts-1",
+        "input": "Hello, this is a test of local speech synthesis.",
+        "voice": "M1",
+        "language": "en",
+        "response_format": "pcm"
+      },
+      "sample_rate": 24000,
+      "duration_s": 3.641,
+      "peak_pcm16": 15151
+    },
+    {
+      "name": "native_asr_0.wav",
+      "status": 200,
+      "elapsed_s": 1.554,
+      "response": {
+        "text": "After early nightfall, the yellow lamps would light up here and there the squalid quarter of the brothels.",
+        "task": "transcribe",
+        "language": "en",
+        "duration": 6.625
+      }
+    },
+    {
+      "name": "native_asr_8k.wav",
+      "status": 200,
+      "elapsed_s": 0.732,
+      "response": {
+        "text": "Yet these thoughts affected herprin less with hope than apprehension.",
+        "task": "transcribe",
+        "language": "en",
+        "duration": 4.825
+      }
+    },
+    {
+      "name": "native_asr_inferdroid-review-public-speech.mp3",
+      "status": 200,
+      "elapsed_s": 1.426,
+      "response": {
+        "text": "After early nightfall, the yellow lamps would light up here and there the squalid quarter of the brothels.",
+        "task": "transcribe",
+        "language": "en",
+        "duration": 6.6269375
+      }
+    },
+    {
+      "name": "post_audio_chat_reuse",
+      "status": 200,
+      "elapsed_s": 0.495,
+      "response": {
+        "id": "chatcmpl-40efb740ee564ed7be638e383f483640",
+        "created": 1791829691,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "READY"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 16,
+          "completion_tokens": 2,
+          "total_tokens": 18
+        }
+      }
+    }
+  ],
+  "passed": true
+}

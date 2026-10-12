@@ -1,0 +1,184 @@
+{
+  "started_at": "2026-10-12T20:25:05.612600+02:00",
+  "device": "Pixel 10",
+  "application_id": "dev.inferdroid",
+  "results": [
+    {
+      "name": "model_discovery",
+      "status": 200,
+      "elapsed_s": 0.048,
+      "response": {
+        "object": "list",
+        "data": [
+          {
+            "id": "gemma-4-E2B-it_Google_Tensor_G5",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-whisper-tiny",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-supertonic-3-int8",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          }
+        ]
+      }
+    },
+    {
+      "name": "authentication_required",
+      "status": 401,
+      "elapsed_s": 0.015,
+      "response": {
+        "error": {
+          "message": "Supply the local API key as Authorization: Bearer <key>.",
+          "type": "authentication_error",
+          "code": "invalid_api_key",
+          "param": null
+        }
+      }
+    },
+    {
+      "name": "native_vision_blue-square.png",
+      "status": 200,
+      "elapsed_s": 3.539,
+      "response": {
+        "id": "chatcmpl-a9da5251eff949a59a6eb9d359c4aa06",
+        "created": 1791829505,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "The image is a white background with a large blue square in the upper half. Below the blue square, there is the text \"HELLO 42\".\n\n**Visible Text Transcription:**\nHELLO 42"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 290,
+          "completion_tokens": 43,
+          "total_tokens": 333
+        }
+      }
+    },
+    {
+      "name": "native_vision_blue-square.jpg",
+      "status": 200,
+      "elapsed_s": 3.454,
+      "response": {
+        "id": "chatcmpl-35a6dd40c82a4cca8121e58160abf76f",
+        "created": 1791829509,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "The image is a simple graphic with a solid blue square on a white background. Below the blue square, there is black text that reads \"HELLO 42\".\n\n**Visible Text Transcription:**\nHELLO 42"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 290,
+          "completion_tokens": 45,
+          "total_tokens": 335
+        }
+      }
+    },
+    {
+      "name": "native_vision_blue-square.webp",
+      "status": 200,
+      "elapsed_s": 5.843,
+      "response": {
+        "id": "chatcmpl-781f9c0d30604f88bb331e705677cea7",
+        "created": 1791829512,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "The image is a white background with a large blue square in the upper portion. Below the blue square, there is some text.\n\n**Visible Text:**\nHELLO 42\n\n**Description:**\nThe image is primarily white with a large, solid blue square dominating the upper half. Below the blue square, the text \"HELLO 42\" is written in black. The blue square is a solid, vibrant blue."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 290,
+          "completion_tokens": 87,
+          "total_tokens": 377
+        }
+      }
+    },
+    {
+      "name": "native_vision_with_thinking",
+      "status": 200,
+      "elapsed_s": 23.533,
+      "response": {
+        "id": "chatcmpl-ea9f946db4894499870e98508e5aea1f",
+        "created": 1791829518,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "**Image Description:**\nThe image features a large, solid blue square centered on a white background. Below the blue square, the text \"HELLO 42\" is written in black, centered beneath the blue block.\n\n**Transcribed Text:**\nHELLO 42",
+              "reasoning_content": "\nHere's a thinking process to arrive at the desired output:\n\n1.  **Analyze the Request:** The user wants me to describe the image and transcribe all visible text.\n\n2.  **Examine the Image:**\n    *   **Background:** The background is white.\n    *   **Main Element:** There is a large, solid blue square/rectangle.\n    *   **Text:** Below the blue square, there is text.\n        *   The text is \"HELLO 42\".\n    *   **Overall Layout:** The image is very simple: a blue block on a white background, with text underneath.\n\n3.  **Describe the Image:**\n    *   Start with the most prominent features (color, shape).\n    *   Mention the text.\n    *   (Optional but helpful) Note the style or context if obvious (it looks like a simple graphic or a placeholder).\n\n4.  **Transcribe the Text:**\n    *   Read the text exactly as it appears: \"HELLO 42\".\n\n5.  **Synthesize the Output:** Combine the description and the transcription clearly.\n\n    *   *Drafting the description:* The image features a large, solid blue square on a white background. Below the blue square, the text \"HELLO 42\" is written in black.\n\n    *   *Drafting the transcription:* HELLO 42\n\n6.  **Final Review:** Does the output meet both parts of the user's request (describe and transcribe)? Yes. (Self-Correction: Ensure the transcription is accurate, including the spacing/formatting if necessary, though here it's just a line of text.)"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 296,
+          "completion_tokens": 411,
+          "total_tokens": 707
+        }
+      }
+    },
+    {
+      "name": "native_multiple_images",
+      "status": 200,
+      "elapsed_s": 3.882,
+      "response": {
+        "id": "chatcmpl-1d2f8b9061e749f1af45985efb29e6ab",
+        "created": 1791829542,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "Here are the main colored shapes in each image, in order:\n\n1. **Blue** (from the first image)\n2. **Red** (from the second image)"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 562,
+          "completion_tokens": 38,
+          "total_tokens": 600
+        }
+      }
+    }
+  ]
+}

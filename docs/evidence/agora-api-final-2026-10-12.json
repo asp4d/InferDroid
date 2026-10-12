@@ -1,0 +1,2705 @@
+{
+  "started_at": "2026-10-12T21:36:48.383809+02:00",
+  "device": "Pixel 10",
+  "agora_wire_reference": "v2.1.0",
+  "method": "Synthetic requests using Agora's Chat Completions wire format; only local test_add executed by this script.",
+  "server_default_thinking": true,
+  "results": [
+    {
+      "name": "agora_custom_buffered",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "prompt_cache_key": "synthetic-agora-conversation"
+      },
+      "text": "",
+      "reasoning": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+      "tool_calls": [
+        {
+          "id": "call_22e3f9a779804826a1e36da45b40e1e7",
+          "type": "function",
+          "function": {
+            "name": "test_add",
+            "arguments": "{\"a\":17,\"b\":23}"
+          }
+        }
+      ],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-77da1bfbad3d476ba98b21e47fae0e72",
+        "created": 1791833808,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": null,
+              "reasoning_content": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+              "tool_calls": [
+                {
+                  "id": "call_22e3f9a779804826a1e36da45b40e1e7",
+                  "type": "function",
+                  "function": {
+                    "name": "test_add",
+                    "arguments": "{\"a\":17,\"b\":23}"
+                  }
+                }
+              ]
+            },
+            "finish_reason": "tool_calls",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 113,
+          "completion_tokens": 86,
+          "total_tokens": 199
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "reasoning_content": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+        "tool_calls": [
+          {
+            "id": "call_22e3f9a779804826a1e36da45b40e1e7",
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "arguments": "{\"a\":17,\"b\":23}"
+            }
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "usage": {
+        "prompt_tokens": 113,
+        "completion_tokens": 86,
+        "total_tokens": 199
+      },
+      "elapsed_s": 6.011
+    },
+    {
+      "name": "agora_custom_streamed",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": true,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "",
+      "reasoning": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+      "tool_calls": [
+        {
+          "id": "call_4b3d9c3039df431cb46b11bab5f1f87e",
+          "type": "function",
+          "function": {
+            "name": "test_add",
+            "arguments": "{\"a\":17,\"b\":23}"
+          },
+          "index": 0
+        }
+      ],
+      "passed": true,
+      "frames": [
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "The"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " user"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " wants"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " to"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " calculate"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " "
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "1"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "7"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " plus"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " "
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "2"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "3"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " using"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " provided"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "test"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "_"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "add"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " tool"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "."
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "I"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " need"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " to"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " call"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "test"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "_"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "add"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " with"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "a"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "="
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "1"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "7"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " and"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " `"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "b"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "="
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "2"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "3"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "`."
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "After"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " getting"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " result"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": ","
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " I"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " will"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " reply"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " with"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " answer"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " in"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " the"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " specified"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " format"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "."
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "tool_calls": [
+                  {
+                    "id": "call_4b3d9c3039df431cb46b11bab5f1f87e",
+                    "type": "function",
+                    "function": {
+                      "name": "test_add",
+                      "arguments": "{\"a\":17,\"b\":23}"
+                    },
+                    "index": 0
+                  }
+                ]
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "tool_calls",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-0fe3460cf3d04e8f90c3adbe7db907bf",
+          "created": 1791833814,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 113,
+            "completion_tokens": 86,
+            "total_tokens": 199
+          }
+        }
+      ],
+      "first_reasoning_s": 0.38,
+      "first_content_s": null,
+      "first_tool_calls_s": 4.89,
+      "status": 200,
+      "finish_reason": "tool_calls",
+      "usage": {
+        "prompt_tokens": 113,
+        "completion_tokens": 86,
+        "total_tokens": 199
+      },
+      "done": true,
+      "elapsed_s": 4.892
+    },
+    {
+      "name": "agora_tool_result_round_trip",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "reasoning_content": "\nThe user wants to calculate 17 plus 23 using the provided `test_add` tool.\nI need to call `test_add` with `a=17` and `b=23`.\nAfter getting the result, I will reply with the answer in the specified format.",
+            "tool_calls": [
+              {
+                "id": "call_22e3f9a779804826a1e36da45b40e1e7",
+                "type": "function",
+                "function": {
+                  "name": "test_add",
+                  "arguments": "{\"a\":17,\"b\":23}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_22e3f9a779804826a1e36da45b40e1e7",
+            "content": "40"
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": true,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "text": "ANSWER: 40",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "ANSWER"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": ":"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": " "
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "4"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "0"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "stop",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b346c0f6b21b41c9830c9d11dc121984",
+          "created": 1791833819,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 148,
+            "completion_tokens": 6,
+            "total_tokens": 154
+          }
+        }
+      ],
+      "first_reasoning_s": null,
+      "first_content_s": 0.28,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 148,
+        "completion_tokens": 6,
+        "total_tokens": 154
+      },
+      "done": true,
+      "elapsed_s": 0.666
+    },
+    {
+      "name": "parallel_tool_history",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "After receiving both function results, sum their results and reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Add 17 and 23 with test_add; also add 1 and 2 with test_add. Report the sum of both results."
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_left",
+                "type": "function",
+                "function": {
+                  "name": "test_add",
+                  "arguments": "{\"a\":17,\"b\":23}"
+                }
+              },
+              {
+                "id": "call_right",
+                "type": "function",
+                "function": {
+                  "name": "test_add",
+                  "arguments": "{\"a\":1,\"b\":2}"
+                }
+              }
+            ],
+            "reasoning_content": "Synthetic prior thought; do not prefill."
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_right",
+            "content": "3"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_left",
+            "content": "40"
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "none",
+        "enable_thinking": false
+      },
+      "text": "3 + 40 = 43",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-4944e1e7dbee41e5b35121e5d1232e63",
+        "created": 1791833820,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "3 + 40 = 43"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 130,
+          "completion_tokens": 10,
+          "total_tokens": 140
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "3 + 40 = 43"
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 130,
+        "completion_tokens": 10,
+        "total_tokens": 140
+      },
+      "elapsed_s": 0.904,
+      "format_observation": "Correct complete equation; the model omitted the requested ANSWER prefix."
+    },
+    {
+      "name": "explicit_thinking_off",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "none",
+        "enable_thinking": false
+      },
+      "text": "ANSWER: 391.",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-5e471012282645d690387d4e8c58ad5d",
+        "created": 1791833821,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "ANSWER: 391."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 32,
+          "completion_tokens": 8,
+          "total_tokens": 40
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "ANSWER: 391."
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 32,
+        "completion_tokens": 8,
+        "total_tokens": 40
+      },
+      "elapsed_s": 0.759
+    },
+    {
+      "name": "reasoning_effort_on",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "none",
+        "reasoning_effort": "medium"
+      },
+      "text": "ANSWER: 391",
+      "reasoning": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $23 = 20 + 3$.\n        $17 \\times 23 = 17 \\times (20 + 3) = 17 \\times 20 + 17 \\times 3 = 340 + 51 = 391$.\n\n3.  **Final result:** 391.\n4.  **Format the output:** The request asks for the answer in the format \"ANSWER: value\".",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-5b694658275f4e249643114c73aa14d2",
+        "created": 1791833821,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "ANSWER: 391",
+              "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $23 = 20 + 3$.\n        $17 \\times 23 = 17 \\times (20 + 3) = 17 \\times 20 + 17 \\times 3 = 340 + 51 = 391$.\n\n3.  **Final result:** 391.\n4.  **Format the output:** The request asks for the answer in the format \"ANSWER: value\"."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 33,
+          "completion_tokens": 325,
+          "total_tokens": 358
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "ANSWER: 391",
+        "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $23 = 20 + 3$.\n        $17 \\times 23 = 17 \\times (20 + 3) = 17 \\times 20 + 17 \\times 3 = 340 + 51 = 391$.\n\n3.  **Final result:** 391.\n4.  **Format the output:** The request asks for the answer in the format \"ANSWER: value\"."
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 325,
+        "total_tokens": 358
+      },
+      "elapsed_s": 16.984
+    },
+    {
+      "name": "reasoning_object_on",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "none",
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "text": "ANSWER: 391",
+      "reasoning": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $23 = 20 + 3$.\n        $17 \\times 23 = 17 \\times (20 + 3) = 17 \\times 20 + 17 \\times 3 = 340 + 51 = 391$.\n\n3.  **Final result:** 391.\n4.  **Format the output:** The request asks for the answer in the format \"ANSWER: value\".",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-7a8e5ef3b4224391b169504d26b09c88",
+        "created": 1791833838,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "ANSWER: 391",
+              "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $23 = 20 + 3$.\n        $17 \\times 23 = 17 \\times (20 + 3) = 17 \\times 20 + 17 \\times 3 = 340 + 51 = 391$.\n\n3.  **Final result:** 391.\n4.  **Format the output:** The request asks for the answer in the format \"ANSWER: value\"."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 33,
+          "completion_tokens": 325,
+          "total_tokens": 358
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "ANSWER: 391",
+        "reasoning_content": "\nThe user wants me to compute the product of 17 and 23.\n\n1.  **Identify the numbers:** 17 and 23.\n2.  **Perform the multiplication:** $17 \\times 23$.\n    *   Method 1: Standard multiplication.\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 2: Distributive property.\n        $17 \\times (20 + 3) = (17 \\times 20) + (17 \\times 3)$\n        $17 \\times 20 = 340$\n        $17 \\times 3 = 51$\n        $340 + 51 = 391$\n    *   Method 3: Using the fact that $23 = 20 + 3$.\n        $17 \\times 23 = 17 \\times (20 + 3) = 17 \\times 20 + 17 \\times 3 = 340 + 51 = 391$.\n\n3.  **Final result:** 391.\n4.  **Format the output:** The request asks for the answer in the format \"ANSWER: value\"."
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 33,
+        "completion_tokens": 325,
+        "total_tokens": 358
+      },
+      "elapsed_s": 17.717
+    },
+    {
+      "name": "truncated_thought_not_executable",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 8,
+        "stream": true,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "stream_options": {
+          "include_usage": true
+        },
+        "enable_thinking": true
+      },
+      "text": "",
+      "reasoning": "\nThe user wants to calculate",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "\n"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": "The"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " user"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " wants"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " to"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "reasoning_content": " calculate"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "length",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-e44c6fb48ae04e39b44a2f3f718e1358",
+          "created": 1791833856,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 113,
+            "completion_tokens": 8,
+            "total_tokens": 121
+          }
+        }
+      ],
+      "first_reasoning_s": 0.335,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 113,
+        "completion_tokens": 8,
+        "total_tokens": 121
+      },
+      "done": true,
+      "elapsed_s": 0.771
+    },
+    {
+      "name": "truncated_function_not_executable",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 8,
+        "stream": true,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "stream_options": {
+          "include_usage": true
+        },
+        "enable_thinking": false
+      },
+      "text": "",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [
+        {
+          "id": "chatcmpl-bb91ca5de54b4b87a0262de4a907958f",
+          "created": 1791833857,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-bb91ca5de54b4b87a0262de4a907958f",
+          "created": 1791833857,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "length",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-bb91ca5de54b4b87a0262de4a907958f",
+          "created": 1791833857,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 112,
+            "completion_tokens": 8,
+            "total_tokens": 120
+          }
+        }
+      ],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 112,
+        "completion_tokens": 8,
+        "total_tokens": 120
+      },
+      "done": true,
+      "elapsed_s": 0.749
+    },
+    {
+      "name": "truncated_function_buffered",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 8,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "enable_thinking": false
+      },
+      "text": "",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-4b86ab3102b041199f6572117a02a3a3",
+        "created": 1791833858,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": ""
+            },
+            "finish_reason": "length",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 112,
+          "completion_tokens": 8,
+          "total_tokens": 120
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": ""
+      },
+      "finish_reason": "length",
+      "usage": {
+        "prompt_tokens": 112,
+        "completion_tokens": 8,
+        "total_tokens": 120
+      },
+      "elapsed_s": 0.762
+    },
+    {
+      "name": "recovery_after_truncated_tools",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Compute 17 times 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "enable_thinking": false,
+        "tool_choice": "none"
+      },
+      "text": "ANSWER: 391.",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-701742d4efd24a38b9143af3f063e1fa",
+        "created": 1791833858,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "ANSWER: 391."
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 32,
+          "completion_tokens": 8,
+          "total_tokens": 40
+        }
+      },
+      "message": {
+        "role": "assistant",
+        "content": "ANSWER: 391."
+      },
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 32,
+        "completion_tokens": 8,
+        "total_tokens": 40
+      },
+      "elapsed_s": 0.758
+    },
+    {
+      "name": "required_choice_rejected",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "tool_choice": "required"
+      },
+      "text": "",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "Supported tool_choice values: auto and none.",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "tool_choice"
+        }
+      },
+      "elapsed_s": 0.018
+    },
+    {
+      "name": "conflicting_thinking_rejected",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "enable_thinking": false,
+        "reasoning_effort": "medium"
+      },
+      "text": "",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "Conflicting reasoning controls.",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "reasoning_effort"
+        }
+      },
+      "elapsed_s": 0.014
+    },
+    {
+      "name": "separate_reasoning_budget_rejected",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Use the provided test_add function for addition. After receiving its result, reply on one line: ANSWER: value."
+          },
+          {
+            "role": "user",
+            "content": "Use test_add to calculate 17 plus 23."
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ],
+        "reasoning": {
+          "max_tokens": 128
+        }
+      },
+      "text": "",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "Unsupported field: reasoning.max_tokens",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "reasoning.max_tokens"
+        }
+      },
+      "elapsed_s": 0.014
+    },
+    {
+      "name": "orphan_tool_result_rejected",
+      "request": {
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "messages": [
+          {
+            "role": "tool",
+            "tool_call_id": "call_orphan",
+            "content": "40"
+          }
+        ],
+        "temperature": 0,
+        "max_tokens": 512,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "test_add",
+              "description": "Add two integers. The client returns their sum.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "a": {
+                    "type": "integer"
+                  },
+                  "b": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "a",
+                  "b"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "text": "",
+      "reasoning": "",
+      "tool_calls": [],
+      "passed": true,
+      "frames": [],
+      "first_reasoning_s": null,
+      "first_content_s": null,
+      "first_tool_calls_s": null,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "tool_call_id must match an outstanding assistant function call exactly once.",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "messages[0].tool_call_id"
+        }
+      },
+      "elapsed_s": 0.014
+    }
+  ],
+  "completed_at": "2026-10-12T21:37:39.631778+02:00"
+}

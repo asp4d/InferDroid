@@ -5,12 +5,16 @@ import dev.inferdroid.engine.ChatPart;
 import dev.inferdroid.engine.ImageInput;
 import dev.inferdroid.engine.GenerationRequest;
 import dev.inferdroid.engine.GenerationResult;
+import dev.inferdroid.engine.ToolCall;
+import dev.inferdroid.engine.ToolDefinition;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.io.StringReader;
 import java.io.IOException;
 import android.util.JsonReader;
@@ -24,7 +28,8 @@ final class OpenAiProtocol {
     static final String MODEL = "gemma-4-E2B-it_Google_Tensor_G5";
     private static final Set<String> PARAMETERS = Set.of("model", "messages", "stream", "stream_options",
             "max_tokens", "max_completion_tokens", "temperature", "top_p", "seed", "n", "user",
-            "tools", "tool_choice", "response_format", "frequency_penalty", "presence_penalty", "logprobs", "enable_thinking");
+            "tools", "tool_choice", "response_format", "frequency_penalty", "presence_penalty", "logprobs",
+            "enable_thinking", "reasoning_effort", "reasoning", "prompt_cache_key");
 
     static final class ApiError extends Exception {
         final int status;
@@ -63,6 +68,10 @@ final class OpenAiProtocol {
     }
 
     static ChatRequest parse(String body, String modelSource, boolean verbose) throws ApiError {
+        return parse(body, modelSource, verbose, false);
+    }
+
+    static ChatRequest parse(String body, String modelSource, boolean verbose, boolean defaultThinking) throws ApiError {
         try {
             validateJson(body);
             JSONTokener tokener = new JSONTokener(body);
@@ -79,6 +88,8 @@ final class OpenAiProtocol {
             JSONArray turns = (JSONArray) input;
             if (turns.length() < 1 || turns.length() > 128) throw invalid("Supply 1–128 messages.", "messages");
             List<ChatMessage> messages = new ArrayList<>();
+            Map<String, ToolCall> pendingCalls = new LinkedHashMap<>();
+            Set<String> seenCallIds = new HashSet<>();
             int imageCount = 0;
             int imageBytes = 0;
             int textBytes = 0;
@@ -88,17 +99,35 @@ final class OpenAiProtocol {
                 Object turn = turns.get(i);
                 if (!(turn instanceof JSONObject)) throw invalid("Each message must be an object.", param);
                 JSONObject message = (JSONObject) turn;
-                keys(message, Set.of("role", "content", "name", "reasoning_content"), param + ".");
+                keys(message, Set.of("role", "content", "name", "reasoning_content", "tool_calls", "tool_call_id"), param + ".");
                 String role = string(message, "role");
                 if (role.equals("developer")) role = "system";
-                if (!Set.of("system", "user", "assistant").contains(role)) {
-                    throw invalid("Only system, developer, user, and assistant messages are supported.", param + ".role");
+                if (!Set.of("system", "user", "assistant", "tool").contains(role)) {
+                    throw invalid("Supported roles: system, developer, user, assistant, and tool.", param + ".role");
                 }
                 if (role.equals("system") && conversationStarted) {
                     throw invalid("System/developer instructions must precede conversation turns.", param + ".role");
                 }
                 if (!role.equals("system")) conversationStarted = true;
                 if (message.has("name") && !message.isNull("name")) string(message, "name");
+                if (!role.equals("assistant") && optional(message, "tool_calls")) throw invalid("tool_calls is only supported on assistant history.", param + ".tool_calls");
+                if (!role.equals("tool") && optional(message, "tool_call_id")) throw invalid("tool_call_id is only supported on tool results.", param + ".tool_call_id");
+                if (!role.equals("tool") && !pendingCalls.isEmpty()) throw invalid("Supply one result for every pending tool call before the next conversation turn.", param + ".role");
+                List<ToolCall> calls = OpenAiTools.historyCalls(message, param + ".tool_calls");
+                for (ToolCall call : calls) {
+                    if (!seenCallIds.add(call.id)) throw invalid("Tool call IDs must be unique across the conversation.", param + ".tool_calls");
+                    pendingCalls.put(call.id, call);
+                    textBytes += (call.name + call.id + call.argumentsJson).getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+                }
+                String toolCallId = null;
+                String toolName = null;
+                if (role.equals("tool")) {
+                    toolCallId = OpenAiTools.id(string(message, "tool_call_id"), param + ".tool_call_id");
+                    ToolCall pending = pendingCalls.remove(toolCallId);
+                    if (pending == null) throw invalid("tool_call_id must match an outstanding assistant function call exactly once.", param + ".tool_call_id");
+                    toolName = pending.name;
+                    if (optional(message, "name") && !toolName.equals(message.opt("name"))) throw invalid("Tool result name does not match its function call.", param + ".name");
+                }
                 // Accept a returned assistant message unchanged, but never prefill its thoughts.
                 if (message.has("reasoning_content")) {
                     if (!role.equals("assistant")) throw invalid("reasoning_content is only supported on assistant history.", param + ".reasoning_content");
@@ -108,7 +137,8 @@ final class OpenAiProtocol {
                 }
                 Object content = message.opt("content");
                 List<ChatPart> contents = new ArrayList<>();
-                if (content instanceof String) contents.add(ChatPart.text((String) content));
+                if ((content == null || content == JSONObject.NULL) && !calls.isEmpty()) { /* Tool-only assistant turn. */ }
+                else if (content instanceof String) contents.add(ChatPart.text((String) content));
                 else if (content instanceof JSONArray) {
                     JSONArray parts = (JSONArray) content;
                     if (parts.length() < 1 || parts.length() > 256) throw invalid("Supply 1–256 content parts per message.", param + ".content");
@@ -144,23 +174,25 @@ final class OpenAiProtocol {
                         }
                     }
                 } else throw invalid("content must be a string or an array of text/image_url parts.", param + ".content");
-                ChatMessage decoded = new ChatMessage(role, contents);
+                ChatMessage decoded = new ChatMessage(role, contents, calls, toolCallId, toolName);
                 boolean hasImage = contents.stream().anyMatch(ChatPart::isImage);
-                if ((!hasImage && decoded.text.trim().isEmpty()) || decoded.text.indexOf('\0') >= 0) {
+                if ((!hasImage && decoded.text.trim().isEmpty() && calls.isEmpty() && !role.equals("tool")) || decoded.text.indexOf('\0') >= 0) {
                     throw invalid("Message text must be non-empty and contain no null characters.", param + ".content");
                 }
                 textBytes += decoded.text.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
                 if (textBytes > 256 * 1024) throw new ApiError(413, "Conversation text exceeds 256 KiB.", "invalid_request_error", "request_too_large", "messages");
                 messages.add(decoded);
             }
-            if (!messages.get(messages.size() - 1).role.equals("user")) {
-                throw invalid("The last message must be a user turn.", "messages");
+            if (!pendingCalls.isEmpty()) throw invalid("Supply a result for every pending tool call.", "messages");
+            String lastRole = messages.get(messages.size() - 1).role;
+            if (!lastRole.equals("user") && !lastRole.equals("tool")) {
+                throw invalid("The last message must be a user turn or a completed tool result.", "messages");
             }
             if (optional(json, "n")) integer(json, "n", 1, 1);
             if (optional(json, "max_tokens") && optional(json, "max_completion_tokens")) {
                 throw invalid("Use either max_tokens or max_completion_tokens.", "max_completion_tokens");
             }
-            boolean enableThinking = bool(json, "enable_thinking", false);
+            boolean enableThinking = thinking(json, defaultThinking);
             int maxTokens = optional(json, "max_completion_tokens")
                     ? integer(json, "max_completion_tokens", 1, 4096)
                     : optional(json, "max_tokens") ? integer(json, "max_tokens", 1, 4096) : enableThinking ? 2048 : 256;
@@ -176,23 +208,56 @@ final class OpenAiProtocol {
                 includeUsage = bool(options, "include_usage", false);
             }
             if (optional(json, "user")) string(json, "user"); // Client metadata; never logged or sent to the model.
+            if (optional(json, "prompt_cache_key")) {
+                String cacheKey = string(json, "prompt_cache_key");
+                if (cacheKey.length() > 256 || cacheKey.indexOf('\0') >= 0) throw invalid("prompt_cache_key must contain at most 256 characters and no null characters.", "prompt_cache_key");
+                // A cache hint is metadata. Fresh conversations remain isolated per request.
+            }
             for (String penalty : List.of("frequency_penalty", "presence_penalty")) {
                 if (optional(json, penalty)) number(json, penalty, 0, 0);
             }
             if (bool(json, "logprobs", false)) throw invalid("Log probabilities are unsupported.", "logprobs");
-            if (optional(json, "tools") && (!(json.opt("tools") instanceof JSONArray)
-                    || json.getJSONArray("tools").length() != 0)) throw invalid("Tool calling is future work.", "tools");
-            if (optional(json, "tool_choice") && !"none".equals(json.opt("tool_choice"))) throw invalid("Only tool_choice=none is supported.", "tool_choice");
+            List<ToolDefinition> tools = OpenAiTools.definitions(json);
+            String toolChoice = optional(json, "tool_choice") ? string(json, "tool_choice") : tools.isEmpty() ? "none" : "auto";
+            if (!Set.of("none", "auto").contains(toolChoice)) throw invalid("Supported tool_choice values: auto and none.", "tool_choice");
             if (optional(json, "response_format")) {
                 JSONObject format = json.optJSONObject("response_format");
                 if (format == null || !"text".equals(format.opt("type")) || format.length() != 1) {
                     throw invalid("Only response_format={\"type\":\"text\"} is supported.", "response_format");
                 }
             }
-            return new ChatRequest(new GenerationRequest(modelSource, messages, verbose, maxTokens, temperature, topP, seed, enableThinking), stream, includeUsage);
+            return new ChatRequest(new GenerationRequest(modelSource, messages, verbose, maxTokens, temperature, topP, seed,
+                    enableThinking, tools, toolChoice.equals("auto") && !tools.isEmpty()), stream, includeUsage);
         } catch (JSONException error) {
             throw new ApiError(400, "Malformed JSON or invalid field type.", "invalid_request_error", "invalid_json", null);
         }
+    }
+
+    private static boolean thinking(JSONObject json, boolean fallback) throws ApiError {
+        Boolean enabled = optional(json, "enable_thinking") ? bool(json, "enable_thinking", false) : null;
+        if (optional(json, "reasoning_effort")) enabled = mergeThinking(enabled, effort(json, "reasoning_effort", "reasoning_effort"), "reasoning_effort");
+        if (optional(json, "reasoning")) {
+            JSONObject reasoning = json.optJSONObject("reasoning");
+            if (reasoning == null) throw invalid("reasoning must be an object.", "reasoning");
+            keys(reasoning, Set.of("effort", "enabled"), "reasoning.");
+            Boolean mode = optional(reasoning, "enabled") ? bool(reasoning, "enabled", false) : null;
+            if (optional(reasoning, "effort")) mode = mergeThinking(mode, effort(reasoning, "effort", "reasoning.effort"), "reasoning.effort");
+            // Presence of a reasoning object opts into thinking unless explicitly disabled.
+            enabled = mergeThinking(enabled, mode == null || mode, "reasoning");
+        }
+        return enabled == null ? fallback : enabled;
+    }
+
+    private static boolean effort(JSONObject json, String key, String param) throws ApiError {
+        Object value = json.opt(key);
+        if (!(value instanceof String) || !Set.of("none", "minimal", "low", "medium", "high", "xhigh", "max").contains(value)) throw invalid("Unsupported reasoning effort. Use none, minimal, low, medium, high, xhigh, or max.", param);
+        // Gemma exposes a thinking switch, not graduated effort levels.
+        return !value.equals("none");
+    }
+
+    private static Boolean mergeThinking(Boolean prior, boolean next, String param) throws ApiError {
+        if (prior != null && prior != next) throw invalid("Conflicting reasoning controls.", param);
+        return next;
     }
 
     private static ApiError imageLimit(String message, String param) {
@@ -232,9 +297,9 @@ final class OpenAiProtocol {
         }
     }
 
-    private static boolean optional(JSONObject json, String key) { return json.has(key) && !json.isNull(key); }
+    static boolean optional(JSONObject json, String key) { return json.has(key) && !json.isNull(key); }
 
-    private static void keys(JSONObject json, Set<String> allowed, String prefix) throws ApiError {
+    static void keys(JSONObject json, Set<String> allowed, String prefix) throws ApiError {
         Iterator<String> keys = json.keys();
         while (keys.hasNext()) {
             String key = keys.next();
@@ -242,7 +307,7 @@ final class OpenAiProtocol {
         }
     }
 
-    private static String string(JSONObject json, String key) throws ApiError {
+    static String string(JSONObject json, String key) throws ApiError {
         Object value = json.opt(key);
         if (!(value instanceof String)) throw invalid(key + " must be a string.", key);
         return (String) value;
@@ -303,11 +368,19 @@ final class OpenAiProtocol {
     static JSONObject completion(String id, long created, GenerationResult result) throws JSONException {
         JSONObject message = new JSONObject().put("role", "assistant").put("content", result.text);
         if (!result.reasoning.isEmpty()) message.put("reasoning_content", result.reasoning);
+        if (!result.toolCalls.isEmpty() && !result.limitReached) {
+            message.put("tool_calls", OpenAiTools.wireCalls(result.toolCalls, false));
+            if (result.text.isEmpty()) message.put("content", JSONObject.NULL);
+        }
         JSONObject response = base(id, created, false).put("choices", new JSONArray().put(new JSONObject().put("index", 0)
                 .put("message", message)
-                .put("finish_reason", result.limitReached ? "length" : "stop").put("logprobs", JSONObject.NULL)));
+                .put("finish_reason", finishReason(result)).put("logprobs", JSONObject.NULL)));
         if (usage(result) != JSONObject.NULL) response.put("usage", usage(result));
         return response;
+    }
+
+    static String finishReason(GenerationResult result) {
+        return result.limitReached ? "length" : result.toolCalls.isEmpty() ? "stop" : "tool_calls";
     }
 
     static JSONObject chunk(String id, long created, JSONObject delta, String finishReason, boolean includeUsage) throws JSONException {

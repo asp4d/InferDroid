@@ -31,7 +31,7 @@ final class NativeInference {
         JSONArray turns = new JSONArray();
         int imageCount = 0;
         int imageBytes = 0;
-        for (ChatMessage message : request.messages) {
+        for (ChatMessage message : modelMessageOrder(request.messages)) {
             JSONArray content = new JSONArray();
             for (ChatPart part : message.parts) {
                 if (!part.isImage()) {
@@ -45,18 +45,91 @@ final class NativeInference {
                     content.put(new JSONObject().put("type", "image").put("blob", image.base64Png()));
                 }
             }
-            turns.put(new JSONObject().put("role", message.role).put("content", content));
+            if (message.role.equals("tool")) {
+                // Gemma's template identifies responses by function name rather than wire ID.
+                content = new JSONArray().put(new JSONObject().put("name", message.toolName)
+                        .put("response", new JSONObject().put("result", message.text)));
+            }
+            JSONObject turn = new JSONObject().put("role", message.role).put("content", content);
+            if (!message.toolCalls.isEmpty()) {
+                JSONArray calls = new JSONArray();
+                for (ToolCall call : message.toolCalls) {
+                    calls.put(new JSONObject().put("type", "function").put("function", new JSONObject()
+                            .put("name", call.name).put("arguments", new JSONObject(call.argumentsJson))));
+                }
+                turn.put("tool_calls", calls);
+            }
+            turns.put(turn);
         }
         JSONObject payload = new JSONObject().put("messages", turns)
                 .put("max_output_tokens", request.maxOutputTokens).put("enable_thinking", request.enableThinking);
         if (request.temperature != null) payload.put("temperature", request.temperature);
         if (request.topP != null) payload.put("top_p", request.topP);
         if (request.seed != null) payload.put("seed", request.seed);
+        JSONArray tools = new JSONArray();
+        if (request.allowToolCalls) {
+            for (ToolDefinition tool : request.tools) {
+                JSONObject parameters = new JSONObject(tool.parametersJson);
+                JSONArray missingFields = new JSONArray();
+                templateOmittedFields(parameters, "", missingFields);
+                String description = tool.description;
+                if (missingFields.length() > 0) description += "\nAdditional parameter schema fields: " + missingFields;
+                tools.put(new JSONObject().put("type", "function").put("function", new JSONObject()
+                        .put("name", tool.name).put("description", description)
+                        .put("parameters", parameters)));
+            }
+        }
+        payload.put("tools", tools);
         TextCallback callback = listener == null ? null : new TextCallback(listener);
         GenerationResult result = generateNative(handle, requestId,
                 payload.toString().getBytes(StandardCharsets.UTF_8), request.verbose, callback);
         if (callback != null) callback.finish();
         return result;
+    }
+
+    // Gemma's template identifies responses by name and position, without wire
+    // IDs. Canonicalize each complete result batch to call order so two calls to
+    // the same function cannot receive each other's out-of-order results.
+    private static java.util.List<ChatMessage> modelMessageOrder(java.util.List<ChatMessage> messages) throws IOException {
+        java.util.List<ChatMessage> ordered = new java.util.ArrayList<>();
+        for (int i = 0; i < messages.size(); i++) {
+            ChatMessage message = messages.get(i);
+            ordered.add(message);
+            if (message.toolCalls.isEmpty()) continue;
+            java.util.Map<String, ChatMessage> results = new java.util.HashMap<>();
+            for (int j = 0; j < message.toolCalls.size(); j++) {
+                if (++i >= messages.size() || !messages.get(i).role.equals("tool")) throw new IOException("Missing function results in chat history.");
+                ChatMessage result = messages.get(i);
+                if (results.put(result.toolCallId, result) != null) throw new IOException("Duplicate function result in chat history.");
+            }
+            for (ToolCall call : message.toolCalls) {
+                ChatMessage result = results.get(call.id);
+                if (result == null) throw new IOException("Function result does not match its call ID.");
+                ordered.add(result);
+            }
+        }
+        return ordered;
+    }
+
+    // The G5 package's format_parameters macro skips these names even when they
+    // are actual function properties (not schema metadata). Agora's memory and
+    // skill tools use "description". Supply affected schemas in the declaration
+    // description as well, preserving the proven model template and backend.
+    private static void templateOmittedFields(JSONObject schema, String path, JSONArray fields) throws JSONException {
+        JSONObject properties = schema.optJSONObject("properties");
+        if (properties != null) {
+            java.util.Iterator<String> names = properties.keys();
+            while (names.hasNext()) {
+                String name = names.next();
+                JSONObject child = properties.getJSONObject(name);
+                String location = path + "/properties/" + name.replace("~", "~0").replace("/", "~1");
+                if (java.util.Set.of("description", "type", "properties", "required", "nullable").contains(name)) {
+                    fields.put(new JSONObject().put("schema_path", location).put("schema", child));
+                } else templateOmittedFields(child, location, fields);
+            }
+        }
+        JSONObject items = schema.optJSONObject("items");
+        if (items != null) templateOmittedFields(items, path + "/items", fields);
     }
 
     /** Retain incomplete UTF-8 across token boundaries, including emoji. */

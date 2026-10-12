@@ -1,0 +1,85 @@
+{
+  "started_at": "2026-10-12T22:24:25.288080+02:00",
+  "method": "Real native engines; synthetic image/TTS and existing public-domain speech fixture.",
+  "results": [
+    {
+      "name": "npu_vision_after_tool_changes",
+      "status": 200,
+      "elapsed_s": 2.403,
+      "passed": true,
+      "response": {
+        "id": "chatcmpl-6c89c3340d33465480f93d829a14bff1",
+        "created": 1791836665,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "HELLO 42"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 290,
+          "completion_tokens": 5,
+          "total_tokens": 295
+        }
+      }
+    },
+    {
+      "name": "cpu_tts_after_tool_changes",
+      "status": 200,
+      "elapsed_s": 3.0,
+      "passed": true,
+      "bytes": 94382,
+      "sample_rate": 24000,
+      "duration_s": 1.965,
+      "peak_pcm16": 9035
+    },
+    {
+      "name": "cpu_asr_after_tool_changes",
+      "status": 200,
+      "elapsed_s": 2.313,
+      "passed": true,
+      "response": {
+        "text": "After early nightfall, the yellow lamps would light up here and there the squalid quarter of the brothels.",
+        "task": "transcribe",
+        "language": "en",
+        "duration": 6.625
+      }
+    },
+    {
+      "name": "npu_reuse_after_audio",
+      "status": 200,
+      "elapsed_s": 0.525,
+      "passed": true,
+      "response": {
+        "id": "chatcmpl-2884d5f71a1b4f63b3bc42f20f54731d",
+        "created": 1791836673,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "READY"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 16,
+          "completion_tokens": 2,
+          "total_tokens": 18
+        }
+      }
+    }
+  ],
+  "completed_at": "2026-10-12T22:24:33.535352+02:00"
+}

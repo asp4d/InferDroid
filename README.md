@@ -14,7 +14,8 @@ speech synthesis. The UI shows generated text, speech transcripts, audio preview
 backend status, model/server controls,
 native diagnostics, and customizable themes and languages. Work runs off the
 UI thread and shares one active-work slot. Image generation and
-network tools are later work.
+server-side network tools are later work. Chat supports client-executed function
+calls, including streaming tool requests and returned tool results.
 
 **Reasoning probe, 2026-10-12:** the existing Pixel 10 installation generated
 Gemma thought blocks with this exact G5 package. In eight paired synthetic
@@ -31,6 +32,13 @@ live SSE, truncation and cancellation/reuse. Generation beyond the old 1,024-tok
 cap was confirmed. Device checks used a separate test installation because this
 workstation's signing key differs from the installed app's key. See the
 [thinking API verification and APK identity](docs/thinking-api-verification.md).
+
+**Update review on the Pixel 10, 2026-10-12:** the rebuilt normal `dev.inferdroid`
+installation passed all 30 instrumentation tests, real reasoning/SSE and
+cancellation checks, image/ASR/TTS regressions, a 1,280-token background stream,
+and cold restart/unload checks. APK builds now reject stale native artifacts
+whose C interface does not match the updated JNI bridge. See the
+[file-by-file review and fresh device evidence](docs/reasoning-update-review.md).
 
 **Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
 consecutive Java → JNI → LiteRT-LM runs returned Gemma's introduction to the
@@ -203,6 +211,10 @@ native/artifacts/arm64-v8a/SHA256SUMS
 CMake fails explicitly if any runtime library is missing. It does not build a
 stub APK. Rerun `build-native.sh` after changing `native/runtime_adapter.cc`.
 Java/UI/JNI-only changes use the normal Android Studio/Gradle build.
+Gradle checks the native source fingerprints and library checksums before
+packaging. After a pull changes the adapter, its C API header, or its Bazel
+target, rebuild the native runtime first; an incompatible cached library now
+fails the build with instructions instead of being packaged into an APK.
 
 `build-speech.sh` independently builds sherpa-onnx **1.13.8**, using its matched
 ONNX Runtime **1.28.2** Android binary. CPU ASR and **Supertonic-only TTS** are
@@ -353,8 +365,14 @@ output budget is 2,048 tokens, versus 256 for direct responses; either mode acce
 an explicit limit up to 4,096. The budget includes thoughts and the final answer.
 Responses expose thoughts separately as `message.reasoning_content` or streamed
 `delta.reasoning_content`, while `content` contains the answer. These are local
-API extensions; clients must support custom request/response fields to use them.
+API extensions. Clients can also use `reasoning_effort` or `reasoning.effort` as
+on/off controls. A saved API thinking default handles clients that omit them.
 See [thinking requests and history handling](docs/local-api.md#optional-thinking).
+
+Agora's custom OpenAI provider can use native thinking and client-side tools.
+Its 2.1.0 thinking toggle is not forwarded for Gemma; enable InferDroid's
+**Use thinking when the client omits reasoning controls** setting before starting
+the server. See [Agora setup and verification](docs/agora-compatibility.md).
 
 **GrapheneOS upgrade:** allow **Network** under InferDroid's app permissions;
 localhost sockets require it. This permission was disabled when the milestone
@@ -370,7 +388,7 @@ parameters, error behavior, limits, CORS, and complete `curl` examples through
 see [speech API parameters](docs/speech-recognition.md#openai-compatible-transcription-endpoint).
 Speech synthesis uses JSON and returns buffered WAV or PCM;
 see [TTS API parameters](docs/tts.md#openai-compatible-speech-endpoint).
-Gemma multimodal audio/image input, tools, structured output, and
+Gemma multimodal audio input, server-executed tools, structured output, and
 `/v1/completions` are later work.
 
 ## Use offline speech recognition
@@ -571,7 +589,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
 ```
 
-Expected result: `Lifecycle/API tests: 20 passed, 0 failed.` The runner uses only
+Expected result: `Lifecycle/API tests: 34 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
 InferDroid afterward and press Run, Generate speech, or Start server for a real request.

@@ -137,7 +137,9 @@ class Client:
 
 
 def correct(result):
-    assert result["finish_reason"] == "stop" and "391" in result["text"], result["name"] + ": missing final answer"
+    answers = re.findall(r"^\s*ANSWER:\s*([^\n]+)", result["text"], flags=re.IGNORECASE | re.MULTILINE)
+    answer = (answers[-1] if answers else result["text"]).strip().strip("* .`$")
+    assert result["finish_reason"] == "stop" and probe.answer_matches(answer, "391"), result["name"] + ": incorrect or incomplete final answer"
 
 
 def main():
@@ -152,7 +154,8 @@ def main():
     device_port, key, require_key = probe.api_config(args.package)
     installed = probe.adb("shell", "dumpsys", "package", args.package)
     version = re.search(r"versionName=(\S+)", installed)
-    report = {"started_at": datetime.now().astimezone().isoformat(), "device": "Pixel 10",
+    report = {"started_at": datetime.now().astimezone().isoformat(),
+              "device": probe.adb("shell", "getprop", "ro.product.model").strip(),
               "application_id": args.package,
               "installed_version": version.group(1) if version else None, "results": []}
     client = Client(args.host_port, key, require_key, report, args.output)
