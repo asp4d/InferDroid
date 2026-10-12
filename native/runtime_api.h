@@ -21,6 +21,8 @@ typedef struct {
     int prompt_tokens;  // -1 when upstream measurements are unavailable.
     int completion_tokens;
     int limit_reached;
+    char* reasoning;
+    size_t reasoning_size;
 } InferDroidResult;
 
 __attribute__((visibility("default")))
@@ -32,7 +34,8 @@ __attribute__((visibility("default")))
 InferDroidResult* inferdroid_engine_generate(uint64_t engine_handle,
                                            uint64_t request_id,
                                            const char* request_json, int verbose,
-                                           int (*on_text)(void*, const char*, size_t),
+                                           // Channel 0 is final-answer text; 1 is reasoning.
+                                           int (*on_text)(void*, int, const char*, size_t),
                                            void* callback_context);
 
 // Cancellation can run concurrently with generation. Request IDs prevent a

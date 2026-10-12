@@ -106,7 +106,8 @@ conversation and KV session while retaining the loaded engine.
 | Parameter | Supported values |
 | --- | --- |
 | `stream` | Boolean, default `false` |
-| `max_tokens` or `max_completion_tokens` | Integer 1–1024, default 256; supply only one |
+| `enable_thinking` | Boolean, default `false`; local extension enabling Gemma's native thinking mode |
+| `max_tokens` or `max_completion_tokens` | Integer 1–4096; default 256, or 2048 with thinking enabled; supply only one |
 | `temperature` | 0–2; zero selects greedy sampling |
 | `top_p` | Greater than 0 and at most 1 |
 | `seed` | Signed 32-bit integer; deterministic output is not guaranteed |
@@ -137,6 +138,52 @@ timestamp. `include_usage` adds `usage: null` to ordinary chunks and a final
 empty-choices usage chunk (null if unavailable). Heartbeat comments keep idle
 streams responsive while loading/prefilling. An error after headers is sent
 as a JSON error in a data event followed by `[DONE]`; it does not claim success.
+
+## Optional thinking
+
+Set `enable_thinking: true` on a chat request to enable Gemma's thinking mode for
+that request only. It is disabled when omitted or false. The flag reaches the
+pinned LiteRT-LM conversation configuration; clients do not need to insert
+special tokens into system prompts. The UI continues using direct responses.
+
+```json
+{
+  "model": "gemma-4-E2B-it_Google_Tensor_G5",
+  "messages": [{"role": "user", "content": "Explain why a 20% increase followed by a 20% decrease does not cancel out."}],
+  "enable_thinking": true,
+  "max_completion_tokens": 2048,
+  "stream": true
+}
+```
+
+`enable_thinking` and `reasoning_content` are InferDroid compatibility extensions,
+not promises that every OpenAI client understands those fields. In a buffered
+response, the assistant message contains the answer in `content` and, when
+non-empty, thoughts in `reasoning_content`. Live SSE routes thoughts through
+`delta.reasoning_content` and answer text through `delta.content`. Gemma's
+`<|channel>thought` / `<channel|>` delimiters are parsed by LiteRT and are not
+included in either field. Both channels stream incrementally and share the
+same bounded transport queue and cancellation ownership.
+
+The output budget covers **both reasoning and the final answer**. Thinking
+requests default to 2,048 output tokens, while direct requests keep the 256-token
+default. Either mode accepts an explicit maximum from 1 through 4,096. A limit
+hit during thoughts returns `finish_reason: "length"`, potentially with empty
+`content`; the partial reasoning is not promoted to an answer. Clients should
+check the finish reason and avoid appending an empty assistant answer to history.
+Usage counts include generated thoughts as part of `completion_tokens`.
+
+For subsequent requests, send the previous assistant's final `content` as
+history. An assistant history message may also include string or null
+`reasoning_content` when a client echoes the returned message, but InferDroid
+discards that field before prefill. Other roles cannot use it. Reasoning and the
+thinking setting do not carry over automatically to later requests. This follows
+[Gemma's multi-turn guidance](https://ai.google.dev/gemma/docs/capabilities/thinking#multi-turn-example-with-thought-stripping).
+
+Thinking can increase latency substantially, and a higher cap is not a guarantee
+that every response finishes. See the [Pixel reasoning experiment](reasoning-verification.md)
+for the measured tradeoffs on the exact G5 model package and the
+[native thinking API verification](thinking-api-verification.md) for implementation checks.
 
 ## Admission, cancellation, and transport limits
 
@@ -211,7 +258,10 @@ verification and is not an app LAN-serving feature. The phone's other apps
 connect directly to port 8080 without ADB.
 
 See [the verification record](milestone-verification.md) for physical NPU
-results and the README for the twenty reproducible lifecycle/API/audio tests.
+results and the README for the reproducible lifecycle/API/audio/vision/thinking tests.
 Those instrumentation tests use test-only fake engines to control timing;
 actual CPU ASR/TTS and NPU inference were verified separately through the service's
 HTTP listener with public test recordings, generated speech, and the original chat prompt.
+The native thinking checks can be reproduced with
+`python3 scripts/test-thinking-api.py --output /tmp/inferdroid-thinking-api.json`
+after starting the debug app's server on the connected Pixel.

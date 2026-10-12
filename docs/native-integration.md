@@ -69,9 +69,14 @@ The adapter uses the following **existing** APIs at the pinned commit:
 The original CLI's optional sampler-flags patch is unnecessary: the known
 successful command did not override sampling. InferDroid preserves the default
 session sampler when parameters are omitted and defaults to 256 output tokens.
-Milestone 3 maps optional temperature/top-p/seed and a 1–1024 output cap through
+Chat maps optional temperature/top-p/seed and a 1–4096 output cap through
 the pinned `SessionConfig::GetMutableSamplerParams()` and
 `SetMaxOutputTokens()` APIs; it does not change the model, dispatch, or backend.
+Optional thinking uses the pinned `ConversationConfig::Builder::SetEnableThinking`
+flag and an explicitly configured Gemma `thought` channel. The model's embedded
+template reads that flag and inserts its own thinking token. Direct requests
+default to 256 output tokens; thinking requests default to 2048. Both thoughts
+and answer tokens count toward the selected cap.
 
 `native/runtime_api.h` is **InferDroid's own C boundary**, not a fictitious
 LiteRT-LM API. The Bazel-built adapter owns LiteRT-LM C++ objects. The small
@@ -189,11 +194,12 @@ the main thread. JNI loading failures release any newly allocated native engine.
 Milestone 3 passes the supplied text message array to `SendMessageAsync`, whose
 pinned contract supports prefilling multiple messages before generating one
 response. This preserves roles and history through the model's chat template.
-The adapter forwards each callback's text content through InferDroid's C
-boundary. JNI retains one global callback reference, attaches native callback
+The adapter forwards final text and `channels.thought` as distinct events through
+InferDroid's C boundary; it also returns both completed strings. JNI retains one
+global callback reference, attaches native callback
 threads to the JVM, transfers ordinary UTF-8 byte arrays, and releases the
 reference only after all native callbacks drain. Java retains partial UTF-8
-sequences across chunks before emitting protocol-neutral text events. Socket
+sequences independently for each channel before emitting protocol-neutral events. Socket
 writes run on HTTP workers; native callbacks only enqueue bounded text.
 
 Actual usage counts come from the fresh conversation's `BenchmarkInfo`

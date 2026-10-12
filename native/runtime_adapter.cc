@@ -298,9 +298,24 @@ std::string MessageText(const litert::lm::Message& message) {
   return text;
 }
 
-absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runtime,
+std::string MessageReasoning(const litert::lm::Message& message) {
+  if (message.contains("channels") && message["channels"].is_object()) {
+    const auto& channels = message["channels"];
+    if (channels.contains("thought") && channels["thought"].is_string()) {
+      return channels["thought"].get<std::string>();
+    }
+  }
+  return "";
+}
+
+struct ChatOutput {
+  std::string text;
+  std::string reasoning;
+};
+
+absl::StatusOr<ChatOutput> Generate(const std::shared_ptr<RuntimeEngine>& runtime,
     uint64_t request_id, const char* request_json, bool verbose,
-    int (*on_text)(void*, const char*, size_t), void* callback_context,
+    int (*on_text)(void*, int, const char*, size_t), void* callback_context,
     GenerationMetrics& metrics, std::ostringstream& diagnostics) {
   using namespace litert::lm;
   SetMinLogSeverity(verbose ? LogSeverity::kInfo : LogSeverity::kWarning);
@@ -326,7 +341,7 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
   if (images) diagnostics << "Image attachments: " << images
                           << "; vision encoder NPU, vision adapter CPU, language generation NPU.\n";
   int max_tokens = request["max_output_tokens"].get<int>();
-  if (max_tokens < 1 || max_tokens > 1024) return absl::InvalidArgumentError("Invalid output token limit.");
+  if (max_tokens < 1 || max_tokens > 4096) return absl::InvalidArgumentError("Invalid output token limit.");
   session_config.SetMaxOutputTokens(max_tokens);
   auto& sampler = session_config.GetMutableSamplerParams();
   if (request.contains("temperature")) {
@@ -339,7 +354,18 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
     if (sampler.type() != proto::SamplerParameters::GREEDY) sampler.set_type(proto::SamplerParameters::TOP_P);
   }
   if (request.contains("seed")) sampler.set_seed(request["seed"].get<int>());
-  auto config = ConversationConfig::Builder().SetSessionConfig(session_config).Build(*runtime->engine);
+  if (request.contains("enable_thinking") && !request["enable_thinking"].is_boolean()) {
+    return absl::InvalidArgumentError("Invalid thinking setting.");
+  }
+  const bool enable_thinking = request.value("enable_thinking", false);
+  diagnostics << "Thinking: " << (enable_thinking ? "enabled" : "disabled") << '\n';
+  // This G5 package predates channel metadata. Declare Gemma's thought channel
+  // explicitly so LiteRT parses split delimiters and truncated thought blocks.
+  auto config = ConversationConfig::Builder()
+      .SetSessionConfig(session_config)
+      .SetEnableThinking(enable_thinking)
+      .SetChannels({Channel{"thought", "<|channel>thought", "<channel|>"}})
+      .Build(*runtime->engine);
   if (!config.ok()) return config.status();
   auto conversation = Conversation::Create(*runtime->engine, *config);
   if (!conversation.ok()) return conversation.status();
@@ -371,8 +397,10 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
             callback->done = true;
             callback->completed.notify_all();
           } else if (on_text) {
+            std::string reasoning = MessageReasoning(*chunk);
             std::string text = MessageText(*chunk);
-            if (!text.empty() && !on_text(callback_context, text.data(), text.size())) {
+            if ((!reasoning.empty() && !on_text(callback_context, 1, reasoning.data(), reasoning.size())) ||
+                (!text.empty() && !on_text(callback_context, 0, text.data(), text.size()))) {
               std::lock_guard<std::mutex> lock(callback->mutex);
               callback->status = absl::InternalError("Text delivery callback failed.");
             }
@@ -440,7 +468,7 @@ absl::StatusOr<std::string> Generate(const std::shared_ptr<RuntimeEngine>& runti
   metrics.limit_reached = metrics.completion_tokens >= max_tokens;
   diagnostics << "Generation completed with NPU requested and Google Tensor/EdgeTPU libraries loaded.\n"
               << "Confirm dispatch_delegate_kernel and SouthBound evidence in the load logs or logcat.\n";
-  return text;
+  return ChatOutput{text, MessageReasoning(response)};
 }
 
 char* Copy(const std::string& text) {
@@ -450,7 +478,7 @@ char* Copy(const std::string& text) {
 }
 InferDroidResult* Result(const absl::Status& status, const std::string& text,
                         const std::ostringstream& diagnostics, uint64_t handle = 0,
-                        GenerationMetrics metrics = {}) {
+                        GenerationMetrics metrics = {}, const std::string& reasoning = "") {
   const std::string log = diagnostics.str();
   auto* result = static_cast<InferDroidResult*>(calloc(1, sizeof(InferDroidResult)));
   if (!result) return nullptr;
@@ -462,9 +490,11 @@ InferDroidResult* Result(const absl::Status& status, const std::string& text,
   result->limit_reached = metrics.limit_reached;
   result->text = Copy(text);
   result->text_size = text.size();
+  result->reasoning = Copy(reasoning);
+  result->reasoning_size = reasoning.size();
   result->diagnostics = Copy(log);
   result->diagnostics_size = log.size();
-  if (!result->text || !result->diagnostics) {
+  if (!result->text || !result->reasoning || !result->diagnostics) {
     inferdroid_result_free(result);
     return nullptr;
   }
@@ -497,20 +527,21 @@ InferDroidResult* inferdroid_engine_load(int fd, const char* path,
 
 InferDroidResult* inferdroid_engine_generate(uint64_t handle, uint64_t request_id,
     const char* request_json, int verbose,
-    int (*on_text)(void*, const char*, size_t), void* callback_context) {
+    int (*on_text)(void*, int, const char*, size_t), void* callback_context) {
   std::lock_guard<std::mutex> lock(inference_mutex);
   LogCapture capture;
   std::ostringstream diagnostics;
   auto runtime = FindEngine(handle);
   GenerationMetrics metrics;
-  absl::StatusOr<std::string> generated = runtime
+  absl::StatusOr<ChatOutput> generated = runtime
       ? Generate(runtime, request_id, request_json, verbose != 0,
                  on_text, callback_context, metrics, diagnostics)
-      : absl::StatusOr<std::string>(absl::FailedPreconditionError("No NPU engine is loaded."));
+      : absl::StatusOr<ChatOutput>(absl::FailedPreconditionError("No NPU engine is loaded."));
   capture.Stop();
   if (!generated.ok()) diagnostics << generated.status().ToString() << '\n';
   diagnostics << "\nNative request logs:\n" << capture.Text();
-  return Result(generated.status(), generated.ok() ? *generated : "", diagnostics, 0, metrics);
+  return Result(generated.status(), generated.ok() ? generated->text : "", diagnostics, 0, metrics,
+                generated.ok() ? generated->reasoning : "");
 }
 
 void inferdroid_engine_cancel(uint64_t handle, uint64_t request_id) {
@@ -541,6 +572,7 @@ void inferdroid_engine_unload(uint64_t handle) {
 void inferdroid_result_free(InferDroidResult* result) {
   if (!result) return;
   free(result->text);
+  free(result->reasoning);
   free(result->diagnostics);
   free(result);
 }

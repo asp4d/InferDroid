@@ -48,7 +48,7 @@ final class NativeInference {
             turns.put(new JSONObject().put("role", message.role).put("content", content));
         }
         JSONObject payload = new JSONObject().put("messages", turns)
-                .put("max_output_tokens", request.maxOutputTokens);
+                .put("max_output_tokens", request.maxOutputTokens).put("enable_thinking", request.enableThinking);
         if (request.temperature != null) payload.put("temperature", request.temperature);
         if (request.topP != null) payload.put("top_p", request.topP);
         if (request.seed != null) payload.put("seed", request.seed);
@@ -61,15 +61,29 @@ final class NativeInference {
 
     /** Retain incomplete UTF-8 across token boundaries, including emoji. */
     static final class TextCallback {
-        private final GenerationListener listener;
+        private final Utf8Channel text;
+        private final Utf8Channel reasoning;
+
+        TextCallback(GenerationListener listener) {
+            text = new Utf8Channel(listener::onText);
+            reasoning = new Utf8Channel(listener::onReasoning);
+        }
+
+        public synchronized void onText(byte[] bytes) { text.decode(bytes, false); }
+        public synchronized void onReasoning(byte[] bytes) { reasoning.decode(bytes, false); }
+        synchronized void finish() {
+            text.decode(new byte[0], true);
+            reasoning.decode(new byte[0], true);
+        }
+    }
+
+    private static final class Utf8Channel {
+        private final java.util.function.Consumer<String> consumer;
         private final CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPLACE).onUnmappableCharacter(CodingErrorAction.REPLACE);
         private byte[] pending = new byte[0];
 
-        TextCallback(GenerationListener listener) { this.listener = listener; }
-
-        public synchronized void onText(byte[] bytes) { decode(bytes, false); }
-        synchronized void finish() { decode(new byte[0], true); }
+        Utf8Channel(java.util.function.Consumer<String> consumer) { this.consumer = consumer; }
 
         private void decode(byte[] bytes, boolean end) {
             ByteBuffer input = ByteBuffer.allocate(pending.length + bytes.length);
@@ -80,7 +94,7 @@ final class NativeInference {
             input.get(pending);
             if (end) decoder.flush(output);
             output.flip();
-            if (output.hasRemaining()) listener.onText(output.toString());
+            if (output.hasRemaining()) consumer.accept(output.toString());
         }
     }
 

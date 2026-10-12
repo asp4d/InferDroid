@@ -16,6 +16,22 @@ native diagnostics, and customizable themes and languages. Work runs off the
 UI thread and shares one active-work slot. Image generation and
 network tools are later work.
 
+**Reasoning probe, 2026-10-12:** the existing Pixel 10 installation generated
+Gemma thought blocks with this exact G5 package. In eight paired synthetic
+problems, direct mode returned eight correct, complete answers; thinking returned
+six complete answers and two responses truncated at the 1,024-token cap.
+Optional thinking is now exposed by the chat API through `enable_thinking: true`,
+with separate `reasoning_content` and final `content`. It stays disabled by default;
+the UI continues using direct responses. See the
+[reasoning verification, limits, and installed-build identity](docs/reasoning-verification.md).
+
+**Optional thinking API verified, 2026-10-12:** all 30 instrumentation tests and
+real NPU checks passed for separate reasoning output, request defaults, history,
+live SSE, truncation and cancellation/reuse. Generation beyond the old 1,024-token
+cap was confirmed. Device checks used a separate test installation because this
+workstation's signing key differs from the installed app's key. See the
+[thinking API verification and APK identity](docs/thinking-api-verification.md).
+
 **Milestone 1 passed on the Pixel 10 / GrapheneOS on 2026-10-08.** Two
 consecutive Java → JNI → LiteRT-LM runs returned Gemma's introduction to the
 UI. Logs confirmed the packaged Google Tensor dispatch, dispatch delegate
@@ -331,6 +347,14 @@ and optional CORS settings persist and can be changed while the listener is
 stopped. **Stop server** cancels its active client request and retains the
 loaded models for UI use. **Unload / Stop** stops the server and drains/unloads
 all three engines. ASR/TTS can be served without choosing or loading Gemma.
+
+Chat clients can opt into Gemma thinking with `enable_thinking: true`. Its default
+output budget is 2,048 tokens, versus 256 for direct responses; either mode accepts
+an explicit limit up to 4,096. The budget includes thoughts and the final answer.
+Responses expose thoughts separately as `message.reasoning_content` or streamed
+`delta.reasoning_content`, while `content` contains the answer. These are local
+API extensions; clients must support custom request/response fields to use them.
+See [thinking requests and history handling](docs/local-api.md#optional-thinking).
 
 **GrapheneOS upgrade:** allow **Network** under InferDroid's app permissions;
 localhost sockets require it. This permission was disabled when the milestone

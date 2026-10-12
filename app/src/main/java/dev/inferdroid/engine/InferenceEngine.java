@@ -12,7 +12,10 @@ public interface InferenceEngine {
     default GenerationResult generate(GenerationRequest request, AtomicBoolean cancelled,
                                       GenerationListener listener) throws Exception {
         GenerationResult result = generate(request, cancelled);
-        if (listener != null && result.success) listener.onText(result.text);
+        if (listener != null && result.success) {
+            if (!result.reasoning.isEmpty()) listener.onReasoning(result.reasoning);
+            if (!result.text.isEmpty()) listener.onText(result.text);
+        }
         return result;
     }
     void cancel();

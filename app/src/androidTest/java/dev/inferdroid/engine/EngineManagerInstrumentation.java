@@ -37,7 +37,9 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 "audioChatContention", "audioDisconnectCancelAndRecovery", "audioStopDuringLoadAndImport",
                 "ttsValidationAndFormats", "ttsBusyAndReuse", "ttsDisconnectAndRecovery", "ttsStopDuringLoadAndImport",
                 "imageDecodeBoundsAndFormats", "apiImagePartsAndHistory", "apiImageValidationAndLimits",
-                "apiImageStreaming", "apiImageDisconnectAndRecovery"};
+                "apiImageStreaming", "apiImageDisconnectAndRecovery", "splitUtf8Reasoning",
+                "apiThinkingParametersAndHistory", "apiThinkingStreaming", "apiThinkingTruncationAndRecovery",
+                "apiThinkingDisconnectAndRecovery"};
         for (int index = 0; index < names.length; index++) {
             Bundle status = new Bundle();
             status.putString("class", getClass().getName());
@@ -53,6 +55,7 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 else if (index < 10) new OpenAiServerTests(this).run(names[index]);
                 else if (index < 16) new SpeechTests(this).run(names[index]);
                 else if (index < 20) new TtsTests(this).run(names[index]);
+                else if (index == 25) splitUtf8Reasoning();
                 else new OpenAiServerTests(this).run(names[index]);
                 sendStatus(0, status);
             } catch (Throwable error) {
@@ -76,6 +79,24 @@ public final class EngineManagerInstrumentation extends Instrumentation {
         for (byte value : "Hello 🌍! é 漢字".getBytes(StandardCharsets.UTF_8)) callback.onText(new byte[]{value});
         callback.finish();
         check(text.toString().equals("Hello 🌍! é 漢字"), "split UTF-8 was corrupted");
+    }
+
+    private void splitUtf8Reasoning() {
+        StringBuilder text = new StringBuilder(), reasoning = new StringBuilder();
+        NativeInference.TextCallback callback = new NativeInference.TextCallback(new GenerationListener() {
+            @Override public void onText(String delta) { text.append(delta); }
+            @Override public void onReasoning(String delta) { reasoning.append(delta); }
+            @Override public void onComplete(GenerationResult result) { }
+        });
+        byte[] answer = "Answer 🌍 é".getBytes(StandardCharsets.UTF_8);
+        byte[] thought = "Thought 🧠 漢字".getBytes(StandardCharsets.UTF_8);
+        for (int i = 0; i < Math.max(answer.length, thought.length); i++) {
+            if (i < answer.length) callback.onText(new byte[]{answer[i]});
+            if (i < thought.length) callback.onReasoning(new byte[]{thought[i]});
+        }
+        callback.finish();
+        check(text.toString().equals("Answer 🌍 é") && reasoning.toString().equals("Thought 🧠 漢字"),
+                "interleaved split UTF-8 channels were corrupted or mixed");
     }
 
     private void busyAndReuse() throws Exception {

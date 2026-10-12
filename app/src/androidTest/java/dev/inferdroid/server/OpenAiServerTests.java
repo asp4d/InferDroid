@@ -47,6 +47,10 @@ public final class OpenAiServerTests {
             case "apiImageValidationAndLimits" -> imageValidation();
             case "apiImageStreaming" -> liveStreaming(imageChat(imageUrl(Bitmap.CompressFormat.PNG)));
             case "apiImageDisconnectAndRecovery" -> busyDisconnectAndRecovery(imageChat(imageUrl(Bitmap.CompressFormat.PNG)));
+            case "apiThinkingParametersAndHistory" -> thinkingParametersAndHistory();
+            case "apiThinkingStreaming" -> thinkingStreaming();
+            case "apiThinkingTruncationAndRecovery" -> thinkingTruncationAndRecovery();
+            case "apiThinkingDisconnectAndRecovery" -> busyDisconnectAndRecovery(thinkingChat());
             default -> throw new AssertionError("Unknown test: " + name);
         }
     }
@@ -109,6 +113,108 @@ public final class OpenAiServerTests {
 
     private void liveStreaming() throws Exception {
         liveStreaming(CHAT);
+    }
+
+    private static String thinkingChat() throws Exception {
+        return new JSONObject(CHAT).put("enable_thinking", true).toString();
+    }
+
+    private void thinkingParametersAndHistory() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            Response normal = fixture.request("POST", "/v1/chat/completions", CHAT, auth());
+            check(normal.status == 200 && !fixture.engine.lastRequest.enableThinking
+                    && fixture.engine.lastRequest.maxOutputTokens == 256, "normal defaults changed");
+            check(!normal.json().getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+                    .has("reasoning_content"), "normal reply gained reasoning");
+            Response thinking = fixture.request("POST", "/v1/chat/completions", thinkingChat(), auth());
+            check(thinking.status == 200 && fixture.engine.lastRequest.enableThinking
+                    && fixture.engine.lastRequest.maxOutputTokens == 2048, "thinking defaults not routed");
+            JSONObject message = thinking.json().getJSONArray("choices").getJSONObject(0).getJSONObject("message");
+            check(message.getString("content").equals("Hello 🌍!")
+                    && message.getString("reasoning_content").equals("Plan 🧠."), "buffered reasoning lost or mixed");
+            check(thinking.json().getJSONObject("usage").getInt("completion_tokens") == 8, "reasoning usage lost");
+            JSONObject followup = new JSONObject(CHAT).put("messages", new JSONArray()
+                    .put(new JSONObject().put("role", "user").put("content", "Hello"))
+                    .put(message).put(new JSONObject().put("role", "user").put("content", "Continue")));
+            check(fixture.request("POST", "/v1/chat/completions", followup.toString(), auth()).status == 200
+                    && !fixture.engine.lastRequest.enableThinking, "thinking leaked into next request");
+            check(fixture.engine.lastRequest.messages.get(1).text.equals("Hello 🌍!")
+                    && fixture.engine.lastRequest.messages.get(1).parts.size() == 1, "historical thoughts reached prefill");
+            for (String option : new String[]{"\"enable_thinking\":\"true\"", "\"enable_thinking\":1", "\"max_tokens\":4097"}) {
+                check(fixture.request("POST", "/v1/chat/completions", CHAT.substring(0, CHAT.length() - 1)
+                        + "," + option + "}", auth()).status == 400, "bad thinking option accepted");
+            }
+            JSONObject explicit = new JSONObject(thinkingChat()).put("max_completion_tokens", 4096);
+            check(fixture.request("POST", "/v1/chat/completions", explicit.toString(), auth()).status == 200
+                    && fixture.engine.lastRequest.maxOutputTokens == 4096, "expanded output cap rejected");
+            explicit.put("enable_thinking", false).remove("max_completion_tokens");
+            check(fixture.request("POST", "/v1/chat/completions", explicit.toString(), auth()).status == 200
+                    && !fixture.engine.lastRequest.enableThinking && fixture.engine.lastRequest.maxOutputTokens == 256,
+                    "explicit thinking disable ignored");
+            followup.getJSONArray("messages").getJSONObject(1).put("reasoning_content", 3);
+            check(fixture.request("POST", "/v1/chat/completions", followup.toString(), auth()).status == 400,
+                    "non-string historical reasoning accepted");
+            followup.getJSONArray("messages").getJSONObject(1).put("reasoning_content", JSONObject.NULL);
+            check(fixture.request("POST", "/v1/chat/completions", followup.toString(), auth()).status == 200,
+                    "null historical reasoning rejected");
+            followup.getJSONArray("messages").getJSONObject(2).put("reasoning_content", "Do not prefill");
+            check(fixture.request("POST", "/v1/chat/completions", followup.toString(), auth()).status == 400,
+                    "user reasoning_content accepted");
+        }
+    }
+
+    private void thinkingStreaming() throws Exception {
+        try (Fixture fixture = new Fixture(true, false); Socket client = fixture.connect()) {
+            JSONObject request = new JSONObject(thinkingChat()).put("stream", true)
+                    .put("stream_options", new JSONObject().put("include_usage", true));
+            fixture.send(client, "POST", "/v1/chat/completions", request.toString(), auth());
+            BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
+            check(reader.readLine().contains("200"), "thinking stream status");
+            while (!reader.readLine().isEmpty()) { }
+            StringBuilder reasoning = new StringBuilder(), content = new StringBuilder();
+            boolean done = false, usage = false, earlyReasoning = false;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data: ")) continue;
+                if (line.equals("data: [DONE]")) { done = true; break; }
+                JSONObject chunk = new JSONObject(line.substring(6));
+                check(!chunk.has("error"), "thinking stream mismatch or error: " + chunk);
+                JSONArray choices = chunk.getJSONArray("choices");
+                if (choices.length() == 0) {
+                    usage = chunk.getJSONObject("usage").getInt("completion_tokens") == 8;
+                    continue;
+                }
+                JSONObject delta = choices.getJSONObject(0).getJSONObject("delta");
+                String thought = delta.optString("reasoning_content", "");
+                if (!thought.isEmpty() && !earlyReasoning) {
+                    check(fixture.engine.finished.getCount() == 1, "reasoning buffered until completion");
+                    earlyReasoning = true;
+                    fixture.engine.allowFinish.countDown();
+                }
+                reasoning.append(thought);
+                content.append(delta.optString("content", ""));
+            }
+            check(done && usage && earlyReasoning && reasoning.toString().equals("Plan 🧠.")
+                    && content.toString().equals("Hello 🌍!"), "reasoning and answer not independently streamed");
+        }
+    }
+
+    private void thinkingTruncationAndRecovery() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            JSONObject request = new JSONObject(thinkingChat()).put("max_tokens", 4);
+            Response response = fixture.request("POST", "/v1/chat/completions", request.toString(), auth());
+            JSONObject choice = response.json().getJSONArray("choices").getJSONObject(0);
+            check(response.status == 200 && choice.getString("finish_reason").equals("length")
+                    && choice.getJSONObject("message").getString("content").isEmpty()
+                    && choice.getJSONObject("message").getString("reasoning_content").equals("Plan 🧠."),
+                    "truncated thoughts were treated as a final answer");
+            Response streamed = fixture.request("POST", "/v1/chat/completions", request.put("stream", true).toString(), auth());
+            check(streamed.status == 200 && streamed.body.contains("\"finish_reason\":\"length\"")
+                    && streamed.body.contains("\"reasoning_content\"") && !streamed.body.contains("\"error\"")
+                    && streamed.body.contains("[DONE]"), "truncated reasoning stream failed");
+            check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200
+                    && fixture.engine.loads.get() == 1, "truncation broke engine reuse");
+        }
     }
 
     private void liveStreaming(String request) throws Exception {
@@ -423,14 +529,21 @@ public final class OpenAiServerTests {
         @Override public GenerationResult generate(GenerationRequest request, AtomicBoolean cancel, GenerationListener listener) throws Exception {
             lastRequest = request;
             generations.incrementAndGet();
+            if (request.enableThinking && request.maxOutputTokens == 4) {
+                if (listener != null) listener.onReasoning("Plan 🧠.");
+                return new GenerationResult(true, false, "", "Plan 🧠.", "test result", 12, 4, true);
+            }
+            if (listener != null && request.enableThinking) listener.onReasoning("Plan ");
             if (listener != null) listener.onText("Hello ");
             entered.countDown();
             await(allowFinish);
             if (cancel.get()) return new GenerationResult(false, true, "", "cancelled");
             if (fail) return new GenerationResult(false, "", "test failure");
+            if (listener != null && request.enableThinking) listener.onReasoning("🧠.");
             if (listener != null) listener.onText("🌍!");
             finished.countDown();
-            return new GenerationResult(true, false, "Hello 🌍!", "test result", 12, 4, request.maxOutputTokens == 4);
+            return new GenerationResult(true, false, "Hello 🌍!", request.enableThinking ? "Plan 🧠." : "",
+                    "test result", 12, request.enableThinking ? 8 : 4, request.maxOutputTokens == 4);
         }
         @Override public void cancel() { cancelled.countDown(); allowFinish.countDown(); }
         @Override public void unload() { loaded = false; }

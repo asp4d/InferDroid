@@ -6,6 +6,7 @@ public final class GenerationResult {
     public final boolean success;
     public final boolean cancelled;
     public final String text;
+    public final String reasoning;
     public final String diagnostics;
     public final int promptTokens;
     public final int completionTokens;
@@ -18,13 +19,13 @@ public final class GenerationResult {
 
     public GenerationResult(boolean success, boolean cancelled, byte[] text, byte[] diagnostics,
                             int promptTokens, int completionTokens, boolean limitReached) {
-        this.success = success;
-        this.cancelled = cancelled;
-        this.text = new String(text, StandardCharsets.UTF_8);
-        this.diagnostics = new String(diagnostics, StandardCharsets.UTF_8);
-        this.promptTokens = promptTokens;
-        this.completionTokens = completionTokens;
-        this.limitReached = limitReached;
+        this(success, cancelled, text, new byte[0], diagnostics, promptTokens, completionTokens, limitReached);
+    }
+
+    public GenerationResult(boolean success, boolean cancelled, byte[] text, byte[] reasoning, byte[] diagnostics,
+                            int promptTokens, int completionTokens, boolean limitReached) {
+        this(success, cancelled, new String(text, StandardCharsets.UTF_8), new String(reasoning, StandardCharsets.UTF_8),
+                new String(diagnostics, StandardCharsets.UTF_8), promptTokens, completionTokens, limitReached);
     }
 
     public GenerationResult(boolean success, String text, String diagnostics) {
@@ -37,9 +38,15 @@ public final class GenerationResult {
 
     public GenerationResult(boolean success, boolean cancelled, String text, String diagnostics,
                             int promptTokens, int completionTokens, boolean limitReached) {
+        this(success, cancelled, text, "", diagnostics, promptTokens, completionTokens, limitReached);
+    }
+
+    public GenerationResult(boolean success, boolean cancelled, String text, String reasoning, String diagnostics,
+                            int promptTokens, int completionTokens, boolean limitReached) {
         this.success = success;
         this.cancelled = cancelled;
         this.text = text;
+        this.reasoning = reasoning;
         this.diagnostics = diagnostics;
         this.promptTokens = promptTokens;
         this.completionTokens = completionTokens;
@@ -47,7 +54,7 @@ public final class GenerationResult {
     }
 
     public GenerationResult withDiagnostics(String value) {
-        return new GenerationResult(success, cancelled, text, value,
+        return new GenerationResult(success, cancelled, text, reasoning, value,
                 promptTokens, completionTokens, limitReached);
     }
 }

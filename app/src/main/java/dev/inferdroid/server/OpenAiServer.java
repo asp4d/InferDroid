@@ -225,12 +225,13 @@ public final class OpenAiServer implements AutoCloseable {
             socket.setSoTimeout(50);
             long lastHeartbeat = System.nanoTime();
             StringBuilder streamed = new StringBuilder();
+            StringBuilder streamedReasoning = new StringBuilder();
             while (session.result == null || !session.text.isEmpty()) {
-                String delta = session.text.poll(100, TimeUnit.MILLISECONDS);
+                ChatDelta delta = session.text.poll(100, TimeUnit.MILLISECONDS);
                 if (delta != null) {
-                    session.queuedCharacters.addAndGet(-delta.length());
-                    streamed.append(delta);
-                    event(output, OpenAiProtocol.chunk(id, created, new JSONObject().put("content", delta), null, chat.includeUsage));
+                    session.queuedCharacters.addAndGet(-delta.text.length());
+                    (delta.field.equals("content") ? streamed : streamedReasoning).append(delta.text);
+                    event(output, OpenAiProtocol.chunk(id, created, new JSONObject().put(delta.field, delta.text), null, chat.includeUsage));
                 }
                 if (session.result != null) continue;
                 // Read only after the complete request body. EOF detects a disconnected
@@ -253,8 +254,8 @@ public final class OpenAiServer implements AutoCloseable {
                 else json(output, error);
             } else if (chat.stream) {
                 // Never claim a successful stream if upstream text delivery diverged.
-                if (!result.text.equals(streamed.toString())) {
-                    event(output, new ApiError(500, "Native streaming text did not match the completed response.",
+                if (!result.text.equals(streamed.toString()) || !result.reasoning.equals(streamedReasoning.toString())) {
+                    event(output, new ApiError(500, "Native streaming content did not match the completed response.",
                             "server_error", "stream_mismatch", null).json());
                 } else {
                     event(output, OpenAiProtocol.chunk(id, created, new JSONObject(), result.limitReached ? "length" : "stop", chat.includeUsage));
@@ -468,18 +469,30 @@ public final class OpenAiServer implements AutoCloseable {
         output.flush();
     }
 
+    private static final class ChatDelta {
+        final String field;
+        final String text;
+        ChatDelta(String field, String text) { this.field = field; this.text = text; }
+    }
+
     private final class Session implements GenerationListener {
         private final Socket socket;
         private final boolean stream;
-        final ArrayBlockingQueue<String> text = new ArrayBlockingQueue<>(128);
+        final ArrayBlockingQueue<ChatDelta> text = new ArrayBlockingQueue<>(128);
         final AtomicInteger queuedCharacters = new AtomicInteger();
         volatile GenerationResult result;
         boolean accepted;
 
         Session(Socket socket, boolean stream) { this.socket = socket; this.stream = stream; }
         @Override public void onText(String delta) {
+            enqueue("content", delta);
+        }
+        @Override public void onReasoning(String delta) {
+            enqueue("reasoning_content", delta);
+        }
+        private void enqueue(String field, String delta) {
             if (!stream || socket.isClosed()) return;
-            if (queuedCharacters.addAndGet(delta.length()) > MAX_BODY || !text.offer(delta)) {
+            if (queuedCharacters.addAndGet(delta.length()) > MAX_BODY || !text.offer(new ChatDelta(field, delta))) {
                 closeSocket(socket);
                 gateway.cancel(this);
             }

@@ -24,7 +24,7 @@ final class OpenAiProtocol {
     static final String MODEL = "gemma-4-E2B-it_Google_Tensor_G5";
     private static final Set<String> PARAMETERS = Set.of("model", "messages", "stream", "stream_options",
             "max_tokens", "max_completion_tokens", "temperature", "top_p", "seed", "n", "user",
-            "tools", "tool_choice", "response_format", "frequency_penalty", "presence_penalty", "logprobs");
+            "tools", "tool_choice", "response_format", "frequency_penalty", "presence_penalty", "logprobs", "enable_thinking");
 
     static final class ApiError extends Exception {
         final int status;
@@ -88,7 +88,7 @@ final class OpenAiProtocol {
                 Object turn = turns.get(i);
                 if (!(turn instanceof JSONObject)) throw invalid("Each message must be an object.", param);
                 JSONObject message = (JSONObject) turn;
-                keys(message, Set.of("role", "content", "name"), param + ".");
+                keys(message, Set.of("role", "content", "name", "reasoning_content"), param + ".");
                 String role = string(message, "role");
                 if (role.equals("developer")) role = "system";
                 if (!Set.of("system", "user", "assistant").contains(role)) {
@@ -99,6 +99,13 @@ final class OpenAiProtocol {
                 }
                 if (!role.equals("system")) conversationStarted = true;
                 if (message.has("name") && !message.isNull("name")) string(message, "name");
+                // Accept a returned assistant message unchanged, but never prefill its thoughts.
+                if (message.has("reasoning_content")) {
+                    if (!role.equals("assistant")) throw invalid("reasoning_content is only supported on assistant history.", param + ".reasoning_content");
+                    if (!message.isNull("reasoning_content") && !(message.opt("reasoning_content") instanceof String)) {
+                        throw invalid("reasoning_content must be a string or null.", param + ".reasoning_content");
+                    }
+                }
                 Object content = message.opt("content");
                 List<ChatPart> contents = new ArrayList<>();
                 if (content instanceof String) contents.add(ChatPart.text((String) content));
@@ -153,9 +160,10 @@ final class OpenAiProtocol {
             if (optional(json, "max_tokens") && optional(json, "max_completion_tokens")) {
                 throw invalid("Use either max_tokens or max_completion_tokens.", "max_completion_tokens");
             }
+            boolean enableThinking = bool(json, "enable_thinking", false);
             int maxTokens = optional(json, "max_completion_tokens")
-                    ? integer(json, "max_completion_tokens", 1, 1024)
-                    : optional(json, "max_tokens") ? integer(json, "max_tokens", 1, 1024) : 256;
+                    ? integer(json, "max_completion_tokens", 1, 4096)
+                    : optional(json, "max_tokens") ? integer(json, "max_tokens", 1, 4096) : enableThinking ? 2048 : 256;
             Double temperature = optional(json, "temperature") ? number(json, "temperature", 0, 2) : null;
             Double topP = optional(json, "top_p") ? number(json, "top_p", Double.MIN_VALUE, 1) : null;
             Integer seed = optional(json, "seed") ? integer(json, "seed", Integer.MIN_VALUE, Integer.MAX_VALUE) : null;
@@ -181,7 +189,7 @@ final class OpenAiProtocol {
                     throw invalid("Only response_format={\"type\":\"text\"} is supported.", "response_format");
                 }
             }
-            return new ChatRequest(new GenerationRequest(modelSource, messages, verbose, maxTokens, temperature, topP, seed), stream, includeUsage);
+            return new ChatRequest(new GenerationRequest(modelSource, messages, verbose, maxTokens, temperature, topP, seed, enableThinking), stream, includeUsage);
         } catch (JSONException error) {
             throw new ApiError(400, "Malformed JSON or invalid field type.", "invalid_request_error", "invalid_json", null);
         }
@@ -293,8 +301,10 @@ final class OpenAiProtocol {
     }
 
     static JSONObject completion(String id, long created, GenerationResult result) throws JSONException {
+        JSONObject message = new JSONObject().put("role", "assistant").put("content", result.text);
+        if (!result.reasoning.isEmpty()) message.put("reasoning_content", result.reasoning);
         JSONObject response = base(id, created, false).put("choices", new JSONArray().put(new JSONObject().put("index", 0)
-                .put("message", new JSONObject().put("role", "assistant").put("content", result.text))
+                .put("message", message)
                 .put("finish_reason", result.limitReached ? "length" : "stop").put("logprobs", JSONObject.NULL)));
         if (usage(result) != JSONObject.NULL) response.put("usage", usage(result));
         return response;

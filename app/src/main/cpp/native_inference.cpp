@@ -48,11 +48,12 @@ class TextCallback {
     callback_ = env->NewGlobalRef(callback);
     jclass type = env->GetObjectClass(callback);
     method_ = env->GetMethodID(type, "onText", "([B)V");
+    reasoning_method_ = env->GetMethodID(type, "onReasoning", "([B)V");
     env->DeleteLocalRef(type);
   }
   ~TextCallback() { if (callback_) owner_->DeleteGlobalRef(callback_); }
-  bool enabled() const { return callback_ && method_; }
-  static int Deliver(void* context, const char* text, size_t size) {
+  bool enabled() const { return callback_ && method_ && reasoning_method_; }
+  static int Deliver(void* context, int channel, const char* text, size_t size) {
     auto& callback = *static_cast<TextCallback*>(context);
     if (callback.failed_) return 0;
     JNIEnv* env = nullptr;
@@ -60,7 +61,8 @@ class TextCallback {
     if (attached && callback.vm_->AttachCurrentThread(&env, nullptr) != JNI_OK) return 0;
     if (!env) return 0;
     auto bytes = Bytes(env, text, size);
-    if (!env->ExceptionCheck()) env->CallVoidMethod(callback.callback_, callback.method_, bytes);
+    if (!env->ExceptionCheck()) env->CallVoidMethod(callback.callback_,
+        channel == 1 ? callback.reasoning_method_ : callback.method_, bytes);
     if (env->ExceptionCheck()) {
       env->ExceptionClear();
       callback.failed_ = true;
@@ -74,6 +76,7 @@ class TextCallback {
   JavaVM* vm_ = nullptr;
   jobject callback_ = nullptr;
   jmethodID method_ = nullptr;
+  jmethodID reasoning_method_ = nullptr;
   std::atomic<bool> failed_{false};
 };
 }  // namespace
@@ -121,14 +124,16 @@ Java_dev_inferdroid_engine_NativeInference_generateNative(
   if (!CheckResult(env, result)) return nullptr;
   jclass result_class = env->FindClass("dev/inferdroid/engine/GenerationResult");
   if (!result_class) return nullptr;
-  jmethodID constructor = env->GetMethodID(result_class, "<init>", "(ZZ[B[BIIZ)V");
+  jmethodID constructor = env->GetMethodID(result_class, "<init>", "(ZZ[B[B[BIIZ)V");
   if (!constructor) return nullptr;
   auto text = Bytes(env, result->text, result->text_size);
+  if (env->ExceptionCheck()) return nullptr;
+  auto reasoning = Bytes(env, result->reasoning, result->reasoning_size);
   if (env->ExceptionCheck()) return nullptr;
   auto diagnostics = Bytes(env, result->diagnostics, result->diagnostics_size);
   if (env->ExceptionCheck()) return nullptr;
   return env->NewObject(result_class, constructor, static_cast<jboolean>(result->success),
-                       static_cast<jboolean>(result->cancelled), text, diagnostics,
+                       static_cast<jboolean>(result->cancelled), text, reasoning, diagnostics,
                        result->prompt_tokens, result->completion_tokens,
                        static_cast<jboolean>(result->limit_reached));
 }
