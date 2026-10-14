@@ -600,6 +600,12 @@ Developed by **Alessandro Spadini**:
 - **Website**: [spadini.dev](https://spadini.dev)
 - **GitHub**: [@asp4d](https://github.com/asp4d)
 
+## Donations
+
+If you find InferDroid useful, you can support me on Ko-fi.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/H1K628T5SV)
+
 ## License
 
 Copyright © 2026 Alessandro Spadini.
