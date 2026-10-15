@@ -59,11 +59,27 @@ final class OpenAiProtocol {
         final GenerationRequest generation;
         final boolean stream;
         final boolean includeUsage;
+        final boolean jsonObject;
 
-        ChatRequest(GenerationRequest generation, boolean stream, boolean includeUsage) {
+        ChatRequest(GenerationRequest generation, boolean stream, boolean includeUsage, boolean jsonObject) {
             this.generation = generation;
             this.stream = stream;
             this.includeUsage = includeUsage;
+            this.jsonObject = jsonObject;
+        }
+
+        GenerationRequest jsonRepair(GenerationResult result) {
+            if (!jsonObject || !result.success || result.limitReached || !result.toolCalls.isEmpty()
+                    || generation.allowToolCalls || result.completionTokens < 0
+                    || result.completionTokens >= generation.maxOutputTokens || isJsonObject(result.text)) return null;
+            List<ChatMessage> messages = new ArrayList<>(generation.messages);
+            messages.add(new ChatMessage("assistant", result.text));
+            messages.add(new ChatMessage("user", "The previous response was not valid JSON. Return the same object "
+                    + "with only its JSON syntax corrected. Preserve the field names and values, balance all braces "
+                    + "and brackets, and return no Markdown or commentary."));
+            return new GenerationRequest(generation.modelSource, messages, generation.verbose,
+                    generation.maxOutputTokens - result.completionTokens, generation.temperature,
+                    generation.topP, generation.seed, generation.enableThinking, generation.tools, false);
         }
     }
 
@@ -193,9 +209,11 @@ final class OpenAiProtocol {
                 throw invalid("Use either max_tokens or max_completion_tokens.", "max_completion_tokens");
             }
             boolean enableThinking = thinking(json, defaultThinking);
+            boolean jsonObject = jsonObjectFormat(json);
             int maxTokens = optional(json, "max_completion_tokens")
                     ? integer(json, "max_completion_tokens", 1, 4096)
-                    : optional(json, "max_tokens") ? integer(json, "max_tokens", 1, 4096) : enableThinking ? 2048 : 256;
+                    : optional(json, "max_tokens") ? integer(json, "max_tokens", 1, 4096)
+                    : enableThinking || jsonObject ? 2048 : 256;
             Double temperature = optional(json, "temperature") ? number(json, "temperature", 0, 2) : null;
             Double topP = optional(json, "top_p") ? number(json, "top_p", Double.MIN_VALUE, 1) : null;
             Integer seed = optional(json, "seed") ? integer(json, "seed", Integer.MIN_VALUE, Integer.MAX_VALUE) : null;
@@ -220,16 +238,38 @@ final class OpenAiProtocol {
             List<ToolDefinition> tools = OpenAiTools.definitions(json);
             String toolChoice = optional(json, "tool_choice") ? string(json, "tool_choice") : tools.isEmpty() ? "none" : "auto";
             if (!Set.of("none", "auto").contains(toolChoice)) throw invalid("Supported tool_choice values: auto and none.", "tool_choice");
-            if (optional(json, "response_format")) {
-                JSONObject format = json.optJSONObject("response_format");
-                if (format == null || !"text".equals(format.opt("type")) || format.length() != 1) {
-                    throw invalid("Only response_format={\"type\":\"text\"} is supported.", "response_format");
-                }
+            if (jsonObject) {
+                String instruction = "Return exactly one valid JSON object matching the requested structure. "
+                        + "Use double-quoted JSON keys and strings. Do not include Markdown fences, "
+                        + "commentary, or text outside the object. Keep the JSON concise and complete.";
+                if (messages.get(0).role.equals("system")) {
+                    messages.set(0, new ChatMessage("system", messages.get(0).text + "\n\n" + instruction));
+                } else messages.add(0, new ChatMessage("system", instruction));
             }
             return new ChatRequest(new GenerationRequest(modelSource, messages, verbose, maxTokens, temperature, topP, seed,
-                    enableThinking, tools, toolChoice.equals("auto") && !tools.isEmpty()), stream, includeUsage);
+                    enableThinking, tools, toolChoice.equals("auto") && !tools.isEmpty()), stream, includeUsage, jsonObject);
         } catch (JSONException error) {
             throw new ApiError(400, "Malformed JSON or invalid field type.", "invalid_request_error", "invalid_json", null);
+        }
+    }
+
+    private static boolean jsonObjectFormat(JSONObject json) throws ApiError {
+        if (!optional(json, "response_format")) return false;
+        JSONObject format = json.optJSONObject("response_format");
+        if (format == null || format.length() != 1
+                || !("text".equals(format.opt("type")) || "json_object".equals(format.opt("type")))) {
+            throw invalid("Supported response_format types: text and json_object (without a schema).", "response_format");
+        }
+        return "json_object".equals(format.opt("type"));
+    }
+
+    static boolean isJsonObject(String text) {
+        try {
+            validateJson(text);
+            JSONTokener tokener = new JSONTokener(text);
+            return tokener.nextValue() instanceof JSONObject && tokener.nextClean() == 0;
+        } catch (ApiError | JSONException error) {
+            return false;
         }
     }
 
@@ -345,10 +385,18 @@ final class OpenAiProtocol {
     }
     static JSONObject models(boolean chat, boolean speech, boolean tts) throws JSONException {
         JSONArray models = new JSONArray();
-        if (chat) models.put(model(MODEL));
+        if (chat) models.put(model(MODEL).put("architecture", new JSONObject()
+                .put("input_modalities", new JSONArray().put("text").put("image"))
+                .put("output_modalities", new JSONArray().put("text"))));
         if (speech) models.put(model(dev.inferdroid.speech.SpeechModelStore.MODEL_ID));
         if (tts) models.put(model(dev.inferdroid.tts.TtsModelStore.MODEL_ID));
-        return new JSONObject().put("object", "list").put("data", models);
+        JSONObject response = new JSONObject().put("object", "list").put("data", models);
+        // FitBuddy's local-provider picker reads the llama.cpp/Ollama capability extension.
+        // Preserve the standard data entries and exact model IDs for existing clients.
+        JSONArray nativeModels = new JSONArray();
+        if (chat) nativeModels.put(new JSONObject().put("name", MODEL).put("model", MODEL)
+                .put("capabilities", new JSONArray().put("completion").put("vision")));
+        return response.put("models", nativeModels);
     }
     private static JSONObject model(String id) throws JSONException {
         return new JSONObject().put("id", id).put("object", "model").put("created", 0).put("owned_by", "inferdroid");

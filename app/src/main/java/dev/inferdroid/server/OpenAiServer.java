@@ -145,6 +145,9 @@ public final class OpenAiServer implements AutoCloseable {
                 throw new ApiError(403, "Use a localhost URL to reach InferDroid.", "permission_error", "invalid_host", null);
             }
             String path = request.target.split("\\?", 2)[0];
+            // Some OpenAI clients append /v1 to an already versioned base URL
+            // for model probes. Accept that single duplicate prefix as an alias.
+            if (path.startsWith("/v1/v1/")) path = path.substring(3);
             if (!Set.of("/v1/models", "/v1/chat/completions", "/v1/audio/transcriptions", "/v1/audio/speech").contains(path)) {
                 throw new ApiError(404, "Unknown API endpoint.", "invalid_request_error", "not_found", null);
             }
@@ -209,7 +212,9 @@ public final class OpenAiServer implements AutoCloseable {
                     "server_error", "chat_model_unavailable", "model");
             headerTimeout.cancel(false);
             requestTimeout = deadlines.schedule(() -> closeSocket(socket), REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            session = new Session(socket, chat.stream);
+            // Validate JSON-mode content before publishing it, including for SSE clients.
+            // Ordinary chat continues forwarding native deltas as they arrive.
+            session = new Session(socket, chat.stream && !chat.jsonObject);
             if (!gateway.generate(chat.generation, session)) {
                 throw new ApiError(429, "Inference is busy loading, generating, or stopping. Retry when idle.",
                         "rate_limit_error", "engine_busy", null);
@@ -226,33 +231,67 @@ public final class OpenAiServer implements AutoCloseable {
             long lastHeartbeat = System.nanoTime();
             StringBuilder streamed = new StringBuilder();
             StringBuilder streamedReasoning = new StringBuilder();
-            while (session.result == null || !session.text.isEmpty()) {
-                ChatDelta delta = session.text.poll(100, TimeUnit.MILLISECONDS);
-                if (delta != null) {
-                    session.queuedCharacters.addAndGet(-delta.text.length());
-                    (delta.field.equals("content") ? streamed : streamedReasoning).append(delta.text);
-                    event(output, OpenAiProtocol.chunk(id, created, new JSONObject().put(delta.field, delta.text), null, chat.includeUsage));
+            GenerationResult repairSource = null;
+            for (int attempt = 0; ; attempt++) {
+                while (session.result == null || !session.text.isEmpty()) {
+                    ChatDelta delta = session.text.poll(100, TimeUnit.MILLISECONDS);
+                    if (delta != null) {
+                        session.queuedCharacters.addAndGet(-delta.text.length());
+                        (delta.field.equals("content") ? streamed : streamedReasoning).append(delta.text);
+                        event(output, OpenAiProtocol.chunk(id, created, new JSONObject().put(delta.field, delta.text), null, chat.includeUsage));
+                    }
+                    if (session.result != null) continue;
+                    // Read only after the complete request body. EOF detects a disconnected
+                    // non-streaming client as well; reads and writes never run in native callbacks.
+                    try {
+                        if (input.read() < 0) throw new EOFException("Client disconnected.");
+                        throw new IOException("HTTP pipelining is unsupported.");
+                    } catch (SocketTimeoutException ignored) { }
+                    if (chat.stream && System.nanoTime() - lastHeartbeat >= TimeUnit.SECONDS.toNanos(1)) {
+                        output.write(": keep-alive\n\n".getBytes(StandardCharsets.UTF_8));
+                        output.flush();
+                        lastHeartbeat = System.nanoTime();
+                    }
                 }
-                if (session.result != null) continue;
-                // Read only after the complete request body. EOF detects a disconnected
-                // non-streaming client as well; reads and writes never run in native callbacks.
-                try {
-                    if (input.read() < 0) throw new EOFException("Client disconnected.");
-                    throw new IOException("HTTP pipelining is unsupported.");
-                } catch (SocketTimeoutException ignored) { }
-                if (chat.stream && System.nanoTime() - lastHeartbeat >= TimeUnit.SECONDS.toNanos(1)) {
-                    output.write(": keep-alive\n\n".getBytes(StandardCharsets.UTF_8));
-                    output.flush();
-                    lastHeartbeat = System.nanoTime();
-                }
+                // A small model can finish with mismatched JSON delimiters. Make one
+                // syntax-only repair attempt within the caller's remaining token budget.
+                // Never retry native failures, cancellation, truncation, or tool calls.
+                dev.inferdroid.engine.GenerationRequest repair = attempt == 0 ? chat.jsonRepair(session.result) : null;
+                if (repair == null) break;
+                Session repaired = new Session(socket, false);
+                if (!gateway.generate(repair, repaired)) break;
+                repaired.accepted = true;
+                repairSource = session.result;
+                session = repaired;
             }
             GenerationResult result = session.result;
+            if (repairSource != null) {
+                result = new GenerationResult(result.success, result.cancelled, result.text, result.reasoning, result.toolCalls,
+                        result.diagnostics, sumTokens(repairSource.promptTokens, result.promptTokens),
+                        sumTokens(repairSource.completionTokens, result.completionTokens), result.limitReached);
+            }
             if (!result.success) {
                 ApiError error = new ApiError(500, result.cancelled ? "Generation cancelled." : "Local NPU inference failed. Check InferDroid diagnostics.",
                         "server_error", result.cancelled ? "request_cancelled" : "inference_failed", null);
                 if (chat.stream) { event(output, error.json()); done(output); }
                 else json(output, error);
+            } else if (chat.jsonObject && (result.toolCalls.isEmpty() || result.limitReached)
+                    && !OpenAiProtocol.isJsonObject(result.text)) {
+                ApiError error = new ApiError(500, result.limitReached
+                        ? "JSON output was incomplete at the output token limit. Increase max_tokens or simplify the request."
+                        : "The model did not return a valid JSON object. Retry or simplify the request.",
+                        "server_error", "invalid_json_output", "response_format");
+                if (chat.stream) { event(output, error.json()); done(output); }
+                else json(output, error);
             } else if (chat.stream) {
+                if (chat.jsonObject) {
+                    if (!result.reasoning.isEmpty()) event(output, OpenAiProtocol.chunk(id, created,
+                            new JSONObject().put("reasoning_content", result.reasoning), null, chat.includeUsage));
+                    if (!result.text.isEmpty()) event(output, OpenAiProtocol.chunk(id, created,
+                            new JSONObject().put("content", result.text), null, chat.includeUsage));
+                    streamed.append(result.text);
+                    streamedReasoning.append(result.reasoning);
+                }
                 // Never claim a successful stream if upstream text delivery diverged.
                 if (!result.text.equals(streamed.toString()) || !result.reasoning.equals(streamedReasoning.toString())) {
                     event(output, new ApiError(500, "Native streaming content did not match the completed response.",
@@ -289,6 +328,10 @@ public final class OpenAiServer implements AutoCloseable {
             clients.remove(socket);
             closeSocket(socket);
         }
+    }
+
+    private static int sumTokens(int first, int second) {
+        return first < 0 || second < 0 ? -1 : first + second;
     }
 
     private void transcribe(Socket socket, InputStream input, OutputStream output, HttpRequest request,

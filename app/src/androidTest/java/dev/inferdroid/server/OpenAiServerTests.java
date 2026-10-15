@@ -57,8 +57,215 @@ public final class OpenAiServerTests {
             case "apiClientToolsStreamingAndTruncation" -> clientToolsStreamingAndTruncation();
             case "apiClientToolsValidation" -> clientToolsValidation();
             case "apiReasoningCompatibilityControls" -> reasoningCompatibilityControls();
+            case "apiJsonObjectBufferedAndHistory" -> jsonObjectBufferedAndHistory();
+            case "apiJsonObjectValidationAndRecovery" -> jsonObjectValidationAndRecovery();
+            case "apiJsonObjectStreaming" -> jsonObjectStreaming();
+            case "apiJsonObjectRepair" -> jsonObjectRepair();
+            case "apiModelCapabilities" -> modelCapabilities();
+            case "apiRepeatedVersionPrefix" -> repeatedVersionPrefix();
             default -> throw new AssertionError("Unknown test: " + name);
         }
+    }
+
+    private void jsonObjectBufferedAndHistory() throws Exception {
+        try (Fixture fixture = new Fixture(false, false, true)) {
+            String reply = "{\"status\":\"SUCCESS\",\"dish_name\":\"Toast 🍞\",\"calories\":120}";
+            fixture.engine.replyText = reply;
+            JSONObject request = jsonChat().put("enable_thinking", false).put("temperature", 0.2)
+                    .put("messages", new JSONArray()
+                            .put(new JSONObject().put("role", "developer").put("content", "Keep the supplied meal schema."))
+                            .put(new JSONObject().put("role", "user").put("content", new JSONArray()
+                                    .put(new JSONObject().put("type", "text").put("text", "One slice of toast.")))));
+            Response response = fixture.request("POST", "/v1/chat/completions", request.toString(), auth());
+            check(response.status == 200, "FitBuddy text request failed: " + response.body);
+            String content = response.json().getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
+            check(content.equals(reply) && new JSONObject(content).getInt("calories") == 120, "JSON content or Unicode changed");
+            GenerationRequest accepted = fixture.engine.lastRequest;
+            check(accepted.maxOutputTokens == 2048 && !accepted.enableThinking && accepted.temperature == 0.2,
+                    "JSON defaults or explicit sampling/thinking controls lost");
+            check(accepted.messages.size() == 2 && accepted.messages.get(0).role.equals("system")
+                    && accepted.messages.get(0).text.startsWith("Keep the supplied meal schema.")
+                    && accepted.messages.get(1).text.equals("One slice of toast."), "JSON mode lost instructions or input");
+            request = new JSONObject(imageChat(imageUrl(Bitmap.CompressFormat.JPEG)))
+                    .put("response_format", new JSONObject().put("type", "json_object"))
+                    .put("max_completion_tokens", 1024);
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200,
+                    "FitBuddy photo request failed");
+            accepted = fixture.engine.lastRequest;
+            check(accepted.maxOutputTokens == 1024 && accepted.enableThinking
+                    && accepted.messages.get(1).parts.stream().anyMatch(part -> part.isImage()),
+                    "JSON mode lost explicit cap, saved thinking default, or image");
+            fixture.engine.replyText = null;
+            request = new JSONObject(CHAT).put("enable_thinking", false).put("response_format", new JSONObject().put("type", "text"));
+            check(fixture.request("POST", "/v1/chat/completions", request.toString(), auth()).status == 200,
+                    "normal text request failed after JSON");
+            accepted = fixture.engine.lastRequest;
+            check(accepted.messages.size() == 1 && accepted.messages.get(0).text.equals("Hello")
+                    && accepted.maxOutputTokens == 256 && !accepted.enableThinking && fixture.engine.loads.get() == 1,
+                    "JSON instructions/defaults leaked to ordinary chat or reloaded the engine");
+        }
+    }
+
+    private void jsonObjectValidationAndRecovery() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            for (Object format : new Object[]{"json_object", new JSONObject(),
+                    new JSONObject().put("type", "json_schema"), new JSONObject().put("type", 1),
+                    new JSONObject().put("type", "json_object").put("schema", new JSONObject())}) {
+                Response response = fixture.request("POST", "/v1/chat/completions",
+                        new JSONObject(CHAT).put("response_format", format).toString(), auth());
+                check(response.status == 400 && response.json().getJSONObject("error").getString("param").equals("response_format"),
+                        "unsupported response format accepted");
+            }
+            check(fixture.engine.generations.get() == 0 && fixture.engine.loads.get() == 0, "invalid format touched inference");
+            for (String text : new String[]{"", "[]", "null", "{\"status\":", "{} commentary", "{}{}",
+                    "```json\n{}\n```", "{'status':'SUCCESS'}", "{\"a\":1,}", "{\"a\":1,\"a\":2}"}) {
+                fixture.engine.replyText = text;
+                Response response = fixture.request("POST", "/v1/chat/completions", jsonChat().toString(), auth());
+                check(response.status == 500 && response.json().getJSONObject("error").getString("code").equals("invalid_json_output"),
+                        "invalid model output published as JSON: " + text);
+            }
+            fixture.engine.replyText = "{\"status\":";
+            Response truncated = fixture.request("POST", "/v1/chat/completions", jsonChat().put("max_tokens", 4).toString(), auth());
+            check(truncated.status == 500 && truncated.body.contains("output token limit"), "truncated JSON returned as a completion");
+            fixture.engine.replyText = " {\"nested\":{\"ok\":true},\"values\":[null,1,\"é\"]} \n";
+            check(fixture.request("POST", "/v1/chat/completions", jsonChat().toString(), auth()).status == 200
+                    && fixture.engine.loads.get() == 1, "invalid JSON broke engine recovery");
+        }
+    }
+
+    private void jsonObjectStreaming() throws Exception {
+        try (Fixture fixture = new Fixture(true, false); Socket client = fixture.connect()) {
+            String reply = "{\"status\":\"SUCCESS\",\"dish_name\":\"Toast 🍞\"}";
+            fixture.engine.replyText = reply;
+            JSONObject request = jsonChat().put("stream", true).put("enable_thinking", true)
+                    .put("stream_options", new JSONObject().put("include_usage", true));
+            fixture.send(client, "POST", "/v1/chat/completions", request.toString(), auth());
+            BufferedReader reader = new BufferedReader(new InputStreamReader(client.getInputStream(), StandardCharsets.UTF_8));
+            check(reader.readLine().contains("200"), "JSON stream status");
+            while (!reader.readLine().isEmpty()) { }
+            String line;
+            do { line = reader.readLine(); } while (line != null && !line.startsWith("data: "));
+            check(line != null && line.contains("assistant"), "JSON stream missing initial assistant role");
+            check(reader.readLine().isEmpty(), "invalid SSE delimiter");
+            await(fixture.engine.entered);
+            client.setSoTimeout(150);
+            try {
+                String early = reader.readLine();
+                check(early == null || !early.startsWith("data: "), "JSON content escaped before validation");
+            } catch (java.net.SocketTimeoutException expected) { }
+            client.setSoTimeout(5000);
+            fixture.engine.allowFinish.countDown();
+            StringBuilder content = new StringBuilder(), reasoning = new StringBuilder();
+            boolean done = false, finish = false, usage = false;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data: ")) continue;
+                if (line.equals("data: [DONE]")) { done = true; break; }
+                JSONObject frame = new JSONObject(line.substring(6));
+                check(!frame.has("error"), "valid JSON stream failed: " + line);
+                if (frame.optJSONObject("usage") != null) usage = true;
+                JSONArray choices = frame.getJSONArray("choices");
+                if (choices.length() == 0) continue;
+                JSONObject choice = choices.getJSONObject(0), delta = choice.getJSONObject("delta");
+                content.append(delta.optString("content", ""));
+                reasoning.append(delta.optString("reasoning_content", ""));
+                if ("stop".equals(choice.optString("finish_reason"))) finish = true;
+            }
+            check(done && finish && usage && content.toString().equals(reply) && reasoning.toString().equals("Plan 🧠."),
+                    "JSON SSE lost content, reasoning, usage, or termination");
+        }
+        try (Fixture fixture = new Fixture(false, false)) {
+            fixture.engine.replyText = "{\"status\":";
+            Response response = fixture.request("POST", "/v1/chat/completions", jsonChat().put("stream", true).toString(), auth());
+            check(response.status == 200 && response.body.contains("invalid_json_output") && response.body.contains("[DONE]")
+                    && !response.body.contains("\\\"status\\\"") && !response.body.contains("\"finish_reason\":\"stop\""),
+                    "invalid JSON leaked or stream claimed success");
+            fixture.engine.replyText = null;
+            check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200, "JSON stream error broke ordinary chat");
+        }
+    }
+
+    private void modelCapabilities() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            JSONObject models = fixture.request("GET", "/v1/models", null, auth()).json();
+            JSONObject standard = models.getJSONArray("data").getJSONObject(0);
+            check(models.getString("object").equals("list") && standard.getString("id").equals(OpenAiServer.MODEL_ID)
+                    && standard.getString("object").equals("model"), "standard model discovery changed");
+            check(standard.getJSONObject("architecture").getJSONArray("input_modalities").toString().contains("image"),
+                    "image modality missing");
+            JSONObject nativeModel = models.getJSONArray("models").getJSONObject(0);
+            check(nativeModel.getString("model").equals(standard.getString("id"))
+                    && nativeModel.getJSONArray("capabilities").toString().contains("vision"), "FitBuddy photo picker cannot discover vision");
+            JSONObject audioOnly = OpenAiProtocol.models(false, true, true);
+            check(audioOnly.getJSONArray("data").length() == 2 && audioOnly.getJSONArray("models").length() == 0,
+                    "unconfigured chat advertised as vision");
+        }
+    }
+
+    private void jsonObjectRepair() throws Exception {
+        String corrected = "{\"status\":\"SUCCESS\",\"calories\":120}";
+        for (boolean stream : new boolean[]{false, true}) {
+            try (Fixture fixture = new Fixture(false, false)) {
+                fixture.engine.replyText = "{\"status\":\"SUCCESS\",\"calories\":120]}";
+                fixture.engine.repairedText = corrected;
+                Response response = fixture.request("POST", "/v1/chat/completions",
+                        jsonChat().put("max_tokens", 64).put("stream", stream).toString(), auth());
+                check(response.status == 200 && fixture.engine.generations.get() == 2,
+                        "JSON syntax repair failed or was not bounded");
+                if (stream) {
+                    check(response.body.contains("[DONE]") && response.body.contains("\"finish_reason\":\"stop\"")
+                            && !response.body.contains("120]}"), "repair stream leaked the invalid response");
+                } else {
+                    check(response.json().getJSONArray("choices").getJSONObject(0).getJSONObject("message")
+                            .getString("content").equals(corrected), "repaired JSON was not published");
+                    check(response.json().getJSONObject("usage").getInt("completion_tokens") == 32
+                            && response.json().getJSONObject("usage").getInt("prompt_tokens") == 24,
+                            "repair usage omitted the first attempt");
+                }
+                GenerationRequest repair = fixture.engine.lastRequest;
+                check(repair.maxOutputTokens == 48 && repair.messages.size() == 4
+                        && repair.messages.get(2).text.equals(fixture.engine.replyText)
+                        && repair.messages.get(3).role.equals("user"), "repair lost content or exceeded the remaining budget");
+                fixture.engine.replyText = null;
+                fixture.engine.repairedText = null;
+                check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200
+                        && fixture.engine.lastRequest.messages.size() == 1 && fixture.engine.loads.get() == 1,
+                        "repair contaminated ordinary chat or reloaded the engine");
+            }
+        }
+        try (Fixture fixture = new Fixture(false, false)) {
+            fixture.engine.replyText = "{\"status\":";
+            check(fixture.request("POST", "/v1/chat/completions", jsonChat().put("max_tokens", 4).toString(), auth()).status == 500
+                    && fixture.engine.generations.get() == 1, "truncated JSON retried past its budget");
+        }
+        try (Fixture fixture = new Fixture(false, false)) {
+            fixture.engine.fail = true;
+            check(fixture.request("POST", "/v1/chat/completions", jsonChat().toString(), auth()).status == 500
+                    && fixture.engine.generations.get() == 1, "native failure triggered a JSON repair");
+        }
+    }
+
+    private void repeatedVersionPrefix() throws Exception {
+        try (Fixture fixture = new Fixture(false, false)) {
+            check(fixture.request("GET", "/v1/v1/models", null, "").status == 401, "version alias bypassed authentication");
+            Response models = fixture.request("GET", "/v1/v1/models", null, auth());
+            check(models.status == 200 && models.json().getJSONArray("data").getJSONObject(0).getString("id").equals(OpenAiServer.MODEL_ID),
+                    "versioned-base discovery alias failed");
+            JSONObject probe = new JSONObject(CHAT).put("max_tokens", 1).put("temperature", 0);
+            check(fixture.request("POST", "/v1/v1/chat/completions", probe.toString(), auth()).status == 200
+                    && fixture.engine.lastRequest.maxOutputTokens == 1, "FitBuddy reachability URL rejected");
+            Response stream = fixture.request("POST", "/v1/v1/chat/completions?probe=true",
+                    new JSONObject(CHAT).put("stream", true).toString(), auth());
+            check(stream.status == 200 && stream.body.contains("[DONE]"), "version alias broke SSE or query handling");
+            for (String path : new String[]{"/v1/v1/responses", "/v1/v1/v1/models", "/models"}) {
+                check(fixture.request("GET", path, null, auth()).status == 404, "alias accepted an unrelated route");
+            }
+            check(fixture.request("POST", "/v1/chat/completions", CHAT, auth()).status == 200
+                    && fixture.engine.loads.get() == 1, "alias affected standard requests or engine reuse");
+        }
+    }
+
+    private static JSONObject jsonChat() throws Exception {
+        return new JSONObject(CHAT).put("response_format", new JSONObject().put("type", "json_object"));
     }
 
     private void authenticationAndValidation() throws Exception {
@@ -665,6 +872,8 @@ public final class OpenAiServerTests {
         volatile boolean loaded;
         volatile boolean fail;
         volatile List<ToolCall> replyCalls = List.of();
+        volatile String replyText;
+        volatile String repairedText;
 
         @Override public GenerationResult load(String model, boolean verbose) {
             if (!loaded) { loaded = true; loads.incrementAndGet(); }
@@ -677,6 +886,19 @@ public final class OpenAiServerTests {
         @Override public GenerationResult generate(GenerationRequest request, AtomicBoolean cancel, GenerationListener listener) throws Exception {
             lastRequest = request;
             generations.incrementAndGet();
+            if (replyText != null) {
+                String text = generations.get() > 1 && repairedText != null ? repairedText : replyText;
+                int split = text.length() / 2;
+                if (listener != null) {
+                    listener.onText(text.substring(0, split));
+                    if (request.enableThinking) listener.onReasoning("Plan 🧠.");
+                }
+                entered.countDown(); await(allowFinish);
+                if (cancel.get()) return new GenerationResult(false, true, "", "cancelled");
+                if (listener != null) listener.onText(text.substring(split));
+                return new GenerationResult(true, false, text, request.enableThinking ? "Plan 🧠." : "",
+                        "test JSON output", 12, 16, request.maxOutputTokens == 4);
+            }
             if (!replyCalls.isEmpty()) {
                 if (listener != null && request.enableThinking) listener.onReasoning("Plan 🧠.");
                 entered.countDown(); await(allowFinish);

@@ -62,8 +62,9 @@ was observed on the reference Pixel. See the
 Client apps need their own Network permission. Some clients also disallow
 cleartext HTTP through their network-security policy. Configuring InferDroid
 cannot override a client's policy; test each client separately. See
-[Agora configuration and compatibility](agora-compatibility.md). FitBuddy
-and RPClient have not yet been verified with this server.
+[Agora configuration and compatibility](agora-compatibility.md) and
+[FitBuddy setup and compatibility](fitbuddy-compatibility.md). RPClient is reported
+working by the user; its UI has not been independently rechecked here.
 
 CORS is disabled initially. Enabling it permits origins with
 `Access-Control-Allow-Origin: *`, `GET, POST, OPTIONS`, and the Authorization
@@ -82,11 +83,16 @@ examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.
 
 | Endpoint | Behavior |
 | --- | --- |
-| `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic models, including while unloaded; unconfigured engines are omitted |
+| `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic models, including while unloaded; unconfigured engines are omitted. Optional vision metadata also supports local-client photo model discovery |
 | `POST /v1/chat/completions` | Text/image input and client-executed functions, buffered or SSE when `stream: true` |
 | `POST /v1/audio/transcriptions` | Offline CPU file transcription; multipart, JSON/text/verbose JSON response |
 | `POST /v1/audio/speech` | Offline CPU TTS; JSON request, buffered 24 kHz mono PCM16 WAV/raw PCM response |
 | `OPTIONS` on any endpoint | CORS preflight when CORS is enabled |
+
+A single repeated `/v1` prefix is accepted as an alias, such as
+`/v1/v1/chat/completions`. FitBuddy 3.2.81's Refresh probe appends `/v1` even
+when its configured base already includes it. The alias uses the same routing,
+authentication and validation; ordinary endpoint URLs remain the canonical form.
 
 Requests must specify the exact model ID and 1–128 messages ending in a user
 turn or the final result of a completed tool round. Roles are `user`, `assistant`, `tool`, and leading `system` instructions;
@@ -113,7 +119,8 @@ conversation and KV session while retaining the loaded engine.
 | `reasoning` | Object with optional `enabled` boolean and/or `effort` string; its presence opts into thinking unless explicitly disabled |
 | `tools` | Up to 128 client-executed function definitions; at most 256 KiB total |
 | `tool_choice` | `auto` or `none`; defaults to `auto` with functions, otherwise `none` |
-| `max_tokens` or `max_completion_tokens` | Integer 1–4096; default 256, or 2048 with thinking enabled; supply only one |
+| `max_tokens` or `max_completion_tokens` | Integer 1–4096; default 256, or 2048 with thinking or JSON object output enabled; supply only one |
+| `response_format` | `{"type":"text"}` (default) or `{"type":"json_object"}`; JSON Schema output is unsupported |
 | `temperature` | 0–2; zero selects greedy sampling |
 | `top_p` | Greater than 0 and at most 1 |
 | `seed` | Signed 32-bit integer; deterministic output is not guaranteed |
@@ -125,10 +132,10 @@ conversation and KV session while retaining the loaded engine.
 Omitted sampling parameters preserve the verified upstream defaults. Sampling
 uses the pinned runtime's existing CPU sampler with the same NPU inference
 backend; this is not a CPU inference fallback. Native float precision limits
-apply to sampling values. `response_format: {"type":"text"}`, zero
-frequency/presence penalties, and `logprobs: false` are also accepted.
-Other parameters, forced tool choices, strict schemas, stop sequences, log probabilities, structured
-output, inline audio content, and multiple candidates receive explicit errors.
+apply to sampling values. Zero frequency/presence penalties and `logprobs: false`
+are also accepted. Other parameters, forced tool choices, strict schemas, stop
+sequences, log probabilities, JSON Schema output, inline audio content, and
+multiple candidates receive explicit errors.
 
 Non-streaming responses contain `id`, `object: "chat.completion"`, `created`,
 `model`, and one assistant message in `choices`. `finish_reason` is `stop`,
@@ -145,6 +152,36 @@ timestamp. `include_usage` adds `usage: null` to ordinary chunks and a final
 empty-choices usage chunk (null if unavailable). Heartbeat comments keep idle
 streams responsive while loading/prefilling. An error after headers is sent
 as a JSON error in a data event followed by `[DONE]`; it does not claim success.
+
+## JSON object output
+
+`response_format: {"type":"json_object"}` adds a JSON-only formatting instruction
+to the request's leading system instructions and raises the default output cap
+to 2048. Explicit token caps and reasoning controls still apply. Supply the
+desired field names and types in your prompt; this mode does not enforce a
+domain schema or validate the accuracy of generated values.
+
+The server validates that generated content is one strict JSON object before
+publishing it. This uses prompting and output validation, not grammar-constrained
+decoding. A completed malformed object gets one syntax-only repair attempt when
+there are no enabled tools and output tokens remain. Both attempts together
+respect the requested output cap, and usage includes both. Native failures,
+cancellation and token truncation are not retried. Invalid or incomplete JSON returns HTTP 500 with code
+`invalid_json_output`; a capped incomplete result asks the client to increase
+`max_tokens` or simplify the request. Complete function calls are returned using
+the usual `tool_calls` contract.
+
+JSON-mode SSE sends the initial assistant role and heartbeat comments while
+generating, then publishes validated content and separate reasoning, followed
+by the finish reason, optional usage and `[DONE]`. Invalid JSON produces an SSE
+error followed by `[DONE]`, without publishing malformed content. Ordinary text
+SSE continues forwarding native text and reasoning deltas live.
+
+`GET /v1/models` retains its standard `data` entries and exact IDs. Gemma also
+advertises text/image input and text output in `architecture`, plus a parallel
+`models` entry with `completion` and `vision` capabilities for local clients
+such as FitBuddy. Audio models remain in `data`; an unconfigured Gemma is never
+advertised as a vision model.
 
 ## Optional thinking
 

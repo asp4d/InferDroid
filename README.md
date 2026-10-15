@@ -374,6 +374,12 @@ Its 2.1.0 thinking toggle is not forwarded for Gemma; enable InferDroid's
 **Use thinking when the client omits reasoning controls** setting before starting
 the server. See [Agora setup and verification](docs/agora-compatibility.md).
 
+FitBuddy can request JSON object output for meal analysis, including photos.
+Use its **OpenAI-compatible** or local **Ollama** provider with
+`http://127.0.0.1:8080`, InferDroid's API key, and the existing Gemma ID for both
+text and photo models. Refresh models to discover its vision capability. See
+[FitBuddy compatibility](docs/fitbuddy-compatibility.md).
+
 **GrapheneOS upgrade:** allow **Network** under InferDroid's app permissions;
 localhost sockets require it. This permission was disabled when the milestone
 2 installation first received this update. Clients need their own Network
@@ -388,7 +394,7 @@ parameters, error behavior, limits, CORS, and complete `curl` examples through
 see [speech API parameters](docs/speech-recognition.md#openai-compatible-transcription-endpoint).
 Speech synthesis uses JSON and returns buffered WAV or PCM;
 see [TTS API parameters](docs/tts.md#openai-compatible-speech-endpoint).
-Gemma multimodal audio input, server-executed tools, structured output, and
+Gemma multimodal audio input, server-executed tools, JSON Schema output, and
 `/v1/completions` are later work.
 
 ## Use offline speech recognition
@@ -589,7 +595,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
 ```
 
-Expected result: `Lifecycle/API tests: 34 passed, 0 failed.` The runner uses only
+Expected result: `Lifecycle/API tests: 40 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
 InferDroid afterward and press Run, Generate speech, or Start server for a real request.

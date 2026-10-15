@@ -1,0 +1,352 @@
+{
+  "started_at": "2026-10-15T20:15:13.111008+02:00",
+  "results": [
+    {
+      "name": "model_discovery",
+      "passed": true,
+      "status": 200,
+      "response": {
+        "object": "list",
+        "data": [
+          {
+            "id": "gemma-4-E2B-it_Google_Tensor_G5",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid",
+            "architecture": {
+              "input_modalities": [
+                "text",
+                "image"
+              ],
+              "output_modalities": [
+                "text"
+              ]
+            }
+          },
+          {
+            "id": "sherpa-onnx-whisper-tiny",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          },
+          {
+            "id": "sherpa-onnx-supertonic-3-int8",
+            "object": "model",
+            "created": 0,
+            "owned_by": "inferdroid"
+          }
+        ],
+        "models": [
+          {
+            "name": "gemma-4-E2B-it_Google_Tensor_G5",
+            "model": "gemma-4-E2B-it_Google_Tensor_G5",
+            "capabilities": [
+              "completion",
+              "vision"
+            ]
+          }
+        ]
+      },
+      "elapsed_s": 0.043
+    },
+    {
+      "name": "fitbuddy_refresh_with_versioned_base",
+      "passed": true,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-105fcff5d6394eadaf4ab1c715a12f2e",
+        "created": 1792088113,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "<|channel>"
+            },
+            "finish_reason": "length",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 16,
+          "completion_tokens": 1,
+          "total_tokens": 17
+        }
+      },
+      "content": "<|channel>",
+      "finish_reason": "length",
+      "elapsed_s": 2.903
+    },
+    {
+      "name": "fitbuddy_text_meal",
+      "passed": true,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-c471f46ac04a4320befdfa92ffd08ea5",
+        "created": 1792088116,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "{\"status\":\"SUCCESS\",\"clarification_message\":null,\"food_analysis\":{\"dish_name\":\"Breakfast/Light Meal\",\"icon_topic\":\"meal\",\"macros\":{\"calories\":500,\"protein_g\":24,\"carbs_g\":52,\"fats_g\":18},\"ingredients\":[{\"name\":\"Eggs (2 large)\",\"quantity\":2,\"weight_g\":100,\"calories\":155,\"protein_g\":12,\"carbs_g\":1,\"fats_g\":10},{\"name\":\"Wholemeal Toast (1 slice)\",\"quantity\":1,\"weight_g\":30,\"calories\":120,\"protein_g\":4,\"carbs_g\":25,\"fats_g\":2},{\"name\":\"Banana\",\"quantity\":1,\"weight_g\":180,\"calories\":105,\"protein_g\":1,\"carbs_g\":27,\"fats_g\":0},{\"name\":\"Plain Yogurt (100g)\",\"quantity\":1,\"weight_g\":100,\"calories\":60,\"protein_g\":4,\"carbs_g\":4,\"fats_g\":2}]}}"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 756,
+          "completion_tokens": 513,
+          "total_tokens": 1269
+        }
+      },
+      "content": "{\"status\":\"SUCCESS\",\"clarification_message\":null,\"food_analysis\":{\"dish_name\":\"Breakfast/Light Meal\",\"icon_topic\":\"meal\",\"macros\":{\"calories\":500,\"protein_g\":24,\"carbs_g\":52,\"fats_g\":18},\"ingredients\":[{\"name\":\"Eggs (2 large)\",\"quantity\":2,\"weight_g\":100,\"calories\":155,\"protein_g\":12,\"carbs_g\":1,\"fats_g\":10},{\"name\":\"Wholemeal Toast (1 slice)\",\"quantity\":1,\"weight_g\":30,\"calories\":120,\"protein_g\":4,\"carbs_g\":25,\"fats_g\":2},{\"name\":\"Banana\",\"quantity\":1,\"weight_g\":180,\"calories\":105,\"protein_g\":1,\"carbs_g\":27,\"fats_g\":0},{\"name\":\"Plain Yogurt (100g)\",\"quantity\":1,\"weight_g\":100,\"calories\":60,\"protein_g\":4,\"carbs_g\":4,\"fats_g\":2}]}}",
+      "finish_reason": "stop",
+      "elapsed_s": 31.022
+    },
+    {
+      "name": "fitbuddy_photo_nonfood",
+      "passed": true,
+      "status": 200,
+      "response": {
+        "id": "chatcmpl-1aca8398fefd4548be198fdce009d023",
+        "created": 1792088147,
+        "model": "gemma-4-E2B-it_Google_Tensor_G5",
+        "object": "chat.completion",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "{\"status\":\"NOT_IDENTIFIED\",\"clarification_message\":\"The image is a solid blue color with no discernible objects or food present.\",\"food_analysis\":null,\"exercise_analysis\":null}"
+            },
+            "finish_reason": "stop",
+            "logprobs": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 365,
+          "completion_tokens": 42,
+          "total_tokens": 407
+        }
+      },
+      "content": "{\"status\":\"NOT_IDENTIFIED\",\"clarification_message\":\"The image is a solid blue color with no discernible objects or food present.\",\"food_analysis\":null,\"exercise_analysis\":null}",
+      "finish_reason": "stop",
+      "elapsed_s": 4.119
+    },
+    {
+      "name": "json_sse",
+      "passed": true,
+      "status": 200,
+      "finish_reason": "stop",
+      "done": true,
+      "frames": [
+        {
+          "id": "chatcmpl-76926986538e45ebaf06986fbed26dcd",
+          "created": 1792088151,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-76926986538e45ebaf06986fbed26dcd",
+          "created": 1792088151,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "{\"status\": \"OK\", \"value\": 391}"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-76926986538e45ebaf06986fbed26dcd",
+          "created": 1792088151,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "stop",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-76926986538e45ebaf06986fbed26dcd",
+          "created": 1792088151,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 79,
+            "completion_tokens": 15,
+            "total_tokens": 94
+          }
+        }
+      ],
+      "content": "{\"status\": \"OK\", \"value\": 391}",
+      "elapsed_s": 1.245
+    },
+    {
+      "name": "incomplete_json_error",
+      "passed": true,
+      "status": 500,
+      "response": {
+        "error": {
+          "message": "JSON output was incomplete at the output token limit. Increase max_tokens or simplify the request.",
+          "type": "server_error",
+          "code": "invalid_json_output",
+          "param": "response_format"
+        }
+      },
+      "elapsed_s": 0.685
+    },
+    {
+      "name": "unsupported_schema_still_rejected",
+      "passed": true,
+      "status": 400,
+      "response": {
+        "error": {
+          "message": "Supported response_format types: text and json_object (without a schema).",
+          "type": "invalid_request_error",
+          "code": "invalid_parameter",
+          "param": "response_format"
+        }
+      },
+      "elapsed_s": 0.013
+    },
+    {
+      "name": "ordinary_sse_after_json",
+      "passed": true,
+      "status": 200,
+      "finish_reason": "stop",
+      "done": true,
+      "frames": [
+        {
+          "id": "chatcmpl-b71b4eb1cd644ca498cdf65c0b35191b",
+          "created": 1792088153,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": ""
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b71b4eb1cd644ca498cdf65c0b35191b",
+          "created": 1792088153,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "3"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b71b4eb1cd644ca498cdf65c0b35191b",
+          "created": 1792088153,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "9"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b71b4eb1cd644ca498cdf65c0b35191b",
+          "created": 1792088153,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "content": "1"
+              },
+              "finish_reason": null,
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b71b4eb1cd644ca498cdf65c0b35191b",
+          "created": 1792088153,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {},
+              "finish_reason": "stop",
+              "logprobs": null
+            }
+          ],
+          "usage": null
+        },
+        {
+          "id": "chatcmpl-b71b4eb1cd644ca498cdf65c0b35191b",
+          "created": 1792088153,
+          "model": "gemma-4-E2B-it_Google_Tensor_G5",
+          "object": "chat.completion.chunk",
+          "choices": [],
+          "usage": {
+            "prompt_tokens": 24,
+            "completion_tokens": 4,
+            "total_tokens": 28
+          }
+        }
+      ],
+      "content": "391",
+      "elapsed_s": 0.619
+    }
+  ],
+  "method": "Synthetic FitBuddy wire formats; validates JSON structure, not nutrition."
+}
