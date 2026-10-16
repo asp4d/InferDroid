@@ -1,0 +1,3 @@
+# Research frontend paired with Tensor SDK v2.1 in Google's 2026-10-14 matrix.
+# The approved unpacked SDK directory or compiler archive is supplied locally.
+ai-edge-litert==2.3.0

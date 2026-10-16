@@ -4,8 +4,8 @@ local.properties
 **/build/
 **/.cxx/
 .deps/
-# Private Tensor SDK experiments, local app integration, models and results.
-/.local/tensor-g5/
+# Machine-local SDKs, models, environments, generated files and research results.
+/.local/
 native/artifacts/
 app/src/main/assets/third_party/generated/
 *.litertlm

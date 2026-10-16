@@ -1,0 +1,16 @@
+# Research sources live here; downloads and generated state belong in .local/.
+/sdk/
+/models/
+/outputs/
+/cache/
+**/.venv/
+**/.export-venv/
+**/compiler-source.json
+*.tflite
+*.safetensors
+*.onnx
+*.so
+*.aar
+*.npz
+*.bin
+*.zip

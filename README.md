@@ -104,6 +104,11 @@ Read [the original handoff](pixel_local_ai_server_codex_handoff.md),
 [image understanding](docs/image-understanding.md) for exact source APIs,
 hashes, storage decisions, and licensing notes.
 
+Optional Tensor G5 image-generation integration and compilation helpers are in
+[the research sources](research/tensor-g5/README.md). That opt-in build keeps
+SDKs, models, generated files and detailed results under the ignored `.local/`
+directory.
+
 ## Acknowledgements & Development
 
 This project was architected, verified on physical hardware, and maintained by Alessandro Spadini, 
