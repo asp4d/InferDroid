@@ -1,4 +1,4 @@
-# Local OpenAI API — milestones 3–6
+# Local OpenAI API
 
 `InferenceService` owns an optional `OpenAiServer` listening **only on
 127.0.0.1**, initially port **8080**. The server has no LAN bind setting and
@@ -84,10 +84,12 @@ The wire format follows the official
 and [streamed chunks](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events).
 Chat implements the following text/image subset; independent audio contracts and
 examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.md).
+Image generation follows the [OpenAI Images generation schema](https://developers.openai.com/api/reference/resources/images/methods/generate)
+within the [local SDXS limits](image-generation.md#local-api).
 
 | Endpoint | Behavior |
 | --- | --- |
-| `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic models, including while unloaded; unconfigured engines are omitted. Optional vision metadata also supports local-client photo model discovery |
+| `GET /v1/models` | OpenAI-style `list` with configured Gemma and imported Whisper/Supertonic/SDXS models, including while unloaded; unconfigured engines are omitted. Modality metadata identifies image input/output |
 | `POST /v1/chat/completions` | Text/image input and client-executed functions, buffered or SSE when `stream: true` |
 | `POST /v1/audio/transcriptions` | Offline CPU file transcription; multipart, JSON/text/verbose JSON response |
 | `POST /v1/audio/speech` | Offline CPU TTS; JSON request, buffered 24 kHz mono PCM16 WAV/raw PCM response |
@@ -99,7 +101,27 @@ A single repeated `/v1` prefix is accepted as an alias, such as
 when its configured base already includes it. The alias uses the same routing,
 authentication and validation; ordinary endpoint URLs remain the canonical form.
 
-Requests must specify the exact model ID and 1–128 messages ending in a user
+### Image generation
+
+Clients call `POST /v1/images/generations` with a text `prompt` and model
+`sdxs-512-dreamshaper-tensor-g5`. Import the bundle through **Generate images →
+Load model** first. The response is `{"created":...,"data":[{"b64_json":"..."}]}`,
+containing one 512×512 PNG. Image generation also works without a chat model.
+It requires a client that uses the Images API; chat image attachments use
+Gemma's separate image-understanding feature.
+
+The local subset supports `n: 1`, `size: "512x512"` or `"auto"`,
+`response_format: "b64_json"`, `quality: "standard"` or `"auto"`,
+`output_format: "png"`, `background: "opaque"` or `"auto"`, and `stream: false`.
+A signed 64-bit `seed` is an optional local extension. URL responses, image
+editing, variations, other sizes, and image streaming are unsupported.
+See [image generation](image-generation.md#local-api) for curl/Python examples,
+defaults, and error responses. All engines share the active-work slot;
+overlapping work receives 429, and missing image models receive 503.
+
+### Chat completions
+
+Chat requests must specify the exact model ID and 1–128 messages ending in a user
 turn or the final result of a completed tool round. Roles are `user`, `assistant`, `tool`, and leading `system` instructions;
 leading `developer` instructions map to `system`. Content accepts a text
 string or an array of `{"type":"text","text":"..."}` parts and, for user

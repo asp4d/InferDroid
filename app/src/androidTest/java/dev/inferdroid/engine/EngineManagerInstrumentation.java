@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import dev.inferdroid.server.OpenAiServerTests;
 import dev.inferdroid.server.SpeechTests;
 import dev.inferdroid.server.TtsTests;
+import dev.inferdroid.images.ImageApiTests;
 import java.nio.charset.StandardCharsets;
 
 /** Platform-SDK tests: headless lifecycle/API checks, or the opt-in real-model image suite. */
@@ -50,7 +51,8 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 "apiThinkingDisconnectAndRecovery", "apiClientToolsBufferedAndHistory", "apiClientToolsStreamingAndTruncation",
                 "apiClientToolsValidation", "apiReasoningCompatibilityControls", "apiJsonObjectBufferedAndHistory",
                 "apiJsonObjectValidationAndRecovery", "apiJsonObjectStreaming", "apiModelCapabilities", "apiJsonObjectRepair",
-                "apiRepeatedVersionPrefix"};
+                "apiRepeatedVersionPrefix", "imageGenerationValidationAndDiscovery", "imageGenerationResponseAndDefaults",
+                "imageGenerationSharedAdmission", "imageGenerationCancellationAndRecovery"};
         for (int index = 0; index < names.length; index++) {
             Bundle status = new Bundle();
             status.putString("class", getClass().getName());
@@ -67,6 +69,7 @@ public final class EngineManagerInstrumentation extends Instrumentation {
                 else if (index < 16) new SpeechTests(this).run(names[index]);
                 else if (index < 20) new TtsTests(this).run(names[index]);
                 else if (index == 25) splitUtf8Reasoning();
+                else if (names[index].startsWith("imageGeneration")) new ImageApiTests(this).run(names[index]);
                 else new OpenAiServerTests(this).run(names[index]);
                 sendStatus(0, status);
             } catch (Throwable error) {

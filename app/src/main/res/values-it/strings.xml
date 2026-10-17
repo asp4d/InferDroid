@@ -118,8 +118,17 @@
     <string name="image_model_selected">Cartella del modello selezionata. Carica il modello o genera un\'immagine per usarlo.</string>
     <string name="image_model_temporary">Cartella del modello selezionata per questo avvio. Questo provider non ha concesso l\'accesso permanente.</string>
     <string name="image_model_ready">Modello SDXS Tensor G5 importato e pronto.</string>
+    <string name="unload_image_model">Scarica / Ferma immagini</string>
+    <string name="image_unload_help">Interrompe la generazione e libera la memoria delle immagini. I file del modello e la cartella selezionata vengono conservati. La prossima richiesta ricarica automaticamente il modello.</string>
+    <string name="image_unloading">Arresto della generazione e rilascio della memoria…</string>
+    <string name="image_unloaded">Motore immagini scaricato. I file del modello sono pronti per la prossima richiesta.</string>
+    <string name="image_unload_failed">Impossibile completare il rilascio della memoria delle immagini. Riprova con Scarica / Ferma immagini.</string>
+    <string name="image_prompt_label">Prompt</string>
+    <string name="image_prompt_help">Descrivi l\'immagine da creare, specificando soggetto, ambientazione e stile. Fino a 8192 caratteri.</string>
     <string name="image_prompt_hint">Descrivi un\'immagine (fino a 8192 caratteri)</string>
     <string name="image_default_prompt">Un piccolo robot rosso legge un libro in un giardino soleggiato, illustrazione digitale</string>
+    <string name="image_seed_label">Seed (numero intero)</string>
+    <string name="image_seed_help">Controlla il rumore iniziale usato per creare l\'immagine. Mantieni gli stessi prompt, modello e seed per ripetere un risultato; cambia il seed per ottenere una variante diversa. 0 è un seed fisso. Sono accettati numeri interi positivi e negativi.</string>
     <string name="image_seed_hint">Seed (numero intero)</string>
     <string name="image_default_seed">0</string>
     <string name="generate_image">Genera immagine</string>

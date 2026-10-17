@@ -108,6 +108,18 @@ final class ImageUiTests {
             check(models.available() == available, "failed_import_preserves_previous_models");
             check(java.util.Objects.equals(imported, preferences.getString("imported_model", null)), "failed_import_preserves_imported_source");
             check(!models.matches(saved), "failed_selection_never_uses_previous_model");
+            if (available) {
+                check(onMain(() -> activity.findViewById(R.id.unload_image_model).isEnabled()), "image_unload_enabled");
+                onMain(() -> activity.findViewById(R.id.unload_image_model).performClick());
+                waitUntilReady();
+                check(status().equals(onMain(() -> activity.getString(R.string.image_unloaded))), "image_unload_status");
+                check(!onMain(() -> activity.findViewById(R.id.unload_image_model).isEnabled()), "image_unload_disabled_after_release");
+                check(source().equals(saved.toString()), "image_unload_keeps_selected_folder");
+                check(models.available() && java.util.Objects.equals(imported, preferences.getString("imported_model", null)),
+                        "image_unload_keeps_imported_models");
+            } else {
+                check(!onMain(() -> activity.findViewById(R.id.unload_image_model).isEnabled()), "image_unload_disabled_without_models");
+            }
             for (Locale locale : new Locale[]{Locale.ENGLISH, Locale.ITALIAN}) {
                 Configuration configuration = new Configuration(target.getResources().getConfiguration());
                 configuration.setLocale(locale);
@@ -115,6 +127,8 @@ final class ImageUiTests {
                 check(localized.getString(R.string.image_generation_title).equals(locale.equals(Locale.ITALIAN)
                         ? "Genera immagini" : "Generate images"), "translated_image_title_" + locale);
                 check(!localized.getString(R.string.image_model_help).isBlank(), "translated_model_help_" + locale);
+                check(localized.getString(R.string.unload_image_model).equals(locale.equals(Locale.ITALIAN)
+                        ? "Scarica / Ferma immagini" : "Unload / Stop images"), "translated_image_unload_" + locale);
             }
         } finally {
             close();
@@ -122,6 +136,7 @@ final class ImageUiTests {
             if (original == null) editor.remove(ImageModels.KEY_MODEL); else editor.putString(ImageModels.KEY_MODEL, original);
             editor.commit();
         }
+        new ImageServerUiTests(test).run();
     }
 
     private void launch() throws Exception {

@@ -118,8 +118,17 @@
     <string name="image_model_selected">Model folder selected. Load the model or generate an image to use it.</string>
     <string name="image_model_temporary">Model folder selected for this launch. This provider did not grant persistent access.</string>
     <string name="image_model_ready">SDXS Tensor G5 model imported and ready.</string>
+    <string name="unload_image_model">Unload / Stop images</string>
+    <string name="image_unload_help">Stops image generation and releases image memory. Model files and your folder selection are kept. The next image request loads automatically.</string>
+    <string name="image_unloading">Stopping image work and releasing memory…</string>
+    <string name="image_unloaded">Image runtime unloaded. Model files are ready for the next request.</string>
+    <string name="image_unload_failed">Could not finish releasing image memory. Try Unload / Stop images again.</string>
+    <string name="image_prompt_label">Prompt</string>
+    <string name="image_prompt_help">Describe the image you want to create, including the subject, setting, and style. Up to 8192 characters.</string>
     <string name="image_prompt_hint">Describe an image (up to 8192 characters)</string>
     <string name="image_default_prompt">A small red robot reading a book in a sunny garden, digital illustration</string>
+    <string name="image_seed_label">Seed (integer)</string>
+    <string name="image_seed_help">Controls the starting noise used to create the image. Keep the same prompt, model, and seed to repeat a result; change the seed for a different variation. 0 is a fixed seed. Positive and negative whole numbers are accepted.</string>
     <string name="image_seed_hint">Seed (integer)</string>
     <string name="image_default_seed">0</string>
     <string name="generate_image">Generate image</string>

@@ -119,6 +119,12 @@ public final class InferenceService extends Service implements EngineManager.Lis
         ensureForeground();
         return images.importModels(folder);
     }
+    public boolean unloadImages() {
+        if (shuttingDown || !images.canUnload() || isBusy() && !images.isBusy()) return false;
+        ensureForeground();
+        images.unload(this::stopIfIdle);
+        return true;
+    }
 
     public EngineManager getManager() { return manager; }
     public SpeechManager getSpeechManager() { return speech; }

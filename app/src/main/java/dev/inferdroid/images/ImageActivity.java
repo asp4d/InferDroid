@@ -33,7 +33,7 @@ public final class ImageActivity extends AppCompatActivity {
     private SharedPreferences preferences;
     private TextView status, modelSource, modelStatus;
     private EditText prompt, seed;
-    private Button choose, load, generate, cancel, save;
+    private Button choose, load, unload, generate, cancel, save;
     private ImageView preview;
     private File displayed;
     private String pendingSavePath;
@@ -69,6 +69,7 @@ public final class ImageActivity extends AppCompatActivity {
         seed = findViewById(R.id.image_seed);
         choose = findViewById(R.id.choose_image_model);
         load = findViewById(R.id.load_image_model);
+        unload = findViewById(R.id.unload_image_model);
         generate = findViewById(R.id.generate_image);
         cancel = findViewById(R.id.cancel_image);
         save = findViewById(R.id.save_generated_image);
@@ -89,6 +90,9 @@ public final class ImageActivity extends AppCompatActivity {
         load.setOnClickListener(view -> {
             if (selectedModel == null) status.setText(R.string.image_model_required);
             else if (service == null || !service.importImageModels(selectedModel)) status.setText(R.string.engine_busy);
+        });
+        unload.setOnClickListener(view -> {
+            if (service == null || !service.unloadImages()) status.setText(R.string.engine_busy);
         });
         generate.setOnClickListener(view -> generate());
         cancel.setOnClickListener(view -> { if (controller != null) controller.cancel(null); });
@@ -150,6 +154,7 @@ public final class ImageActivity extends AppCompatActivity {
         boolean idle = ready && !service.isBusy();
         choose.setEnabled(idle);
         load.setEnabled(idle && selectedModel != null);
+        unload.setEnabled(ready && controller.canUnload() && (idle || controller.isBusy()));
         generate.setEnabled(idle && (selectedModel != null || controller.isAvailable()));
         cancel.setEnabled(ready && controller.canCancel());
         modelSource.setText(selectedModel != null ? selectedModel.toString()

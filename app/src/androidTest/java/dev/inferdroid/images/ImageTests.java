@@ -6,6 +6,7 @@ import android.os.*;
 import android.graphics.BitmapFactory;
 import dev.inferdroid.InferenceService;
 import dev.inferdroid.MainActivity;
+import dev.inferdroid.R;
 import dev.inferdroid.server.ServerConfig;
 import java.net.*;
 import java.io.*;
@@ -23,6 +24,7 @@ public final class ImageTests {
     private final JSONObject report=new JSONObject();
     private InferenceService service;
     private Context target;
+    private ImageActivity imageActivity;
     private final boolean uiOnly;
     private final String prompt="A small red robot reading a book in a sunny garden, digital illustration";
     private final ExecutorService io=Executors.newSingleThreadExecutor();
@@ -71,6 +73,29 @@ public final class ImageTests {
             checkImage(first.get(6,TimeUnit.MINUTES));
             report.put("first_image",onMain(()->service.getImages().image().toString()));
             report.put("busy_gate_passed",true);save();
+            stage("unload_idle_and_active");
+            imageActivity=(ImageActivity)instrumentation.startActivitySync(new Intent(target,ImageActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            waitFor(()->onMain(()->imageActivity.findViewById(R.id.unload_image_model).isEnabled()),15,"image_unload_ui_ready");
+            File previousImage=onMain(()->service.getImages().image());
+            String selection=target.getSharedPreferences(ImageModels.PREFERENCES,Context.MODE_PRIVATE).getString(ImageModels.KEY_MODEL,null);
+            var chat=onMain(()->service.getManager().getState());
+            var speech=onMain(()->service.getSpeechManager().getState());
+            var tts=onMain(()->service.getTtsManager().getState());
+            onMain(()->imageActivity.findViewById(R.id.unload_image_model).performClick());
+            checkUnloaded(previousImage,selection);
+            report.put("idle_unload_passed",true);save();
+            Future<Reply> stopped=io.submit(()->request("POST","/v1/images/generations",body(2),true));
+            waitFor(()->onMain(()->service.getImages().canCancel()
+                    &&!service.getImages().status().equals(target.getString(R.string.image_worker_starting))),15,"active_worker_started");
+            check(onMain(()->imageActivity.findViewById(R.id.unload_image_model).isEnabled()),"image_unload_available_during_generation");
+            onMain(()->imageActivity.findViewById(R.id.unload_image_model).performClick());
+            Reply cancelled=stopped.get(30,TimeUnit.SECONDS);
+            check(cancelled.status==503&&new JSONObject(cancelled.body).getJSONObject("error").getString("code").equals("image_cancelled"),"image_unload_cancels_api_owner");
+            checkUnloaded(previousImage,selection);
+            check(onMain(()->service.getManager().getState().loaded==chat.loaded&&service.getManager().getState().phase==chat.phase
+                    &&service.getSpeechManager().getState().loaded==speech.loaded&&service.getSpeechManager().getState().phase==speech.phase
+                    &&service.getTtsManager().getState().loaded==tts.loaded&&service.getTtsManager().getState().phase==tts.phase),"image_unload_preserves_other_engines");
+            report.put("active_unload_passed",true);save();
             stage("disconnect_and_recovery");
             try(Socket socket=new Socket("127.0.0.1",PORT)) {
                 byte[] bytes=body(9).getBytes(StandardCharsets.UTF_8);
@@ -83,6 +108,7 @@ public final class ImageTests {
             checkImage(request("POST","/v1/images/generations",body(7),true));
             report.put("recovery_image",onMain(()->service.getImages().image().toString()));
             report.put("recovery_passed",true);
+            report.put("reload_after_unload_passed",true);
             }
             report.put("passed",true);stage("completed");
             result.putString("image_generation_result","passed");
@@ -93,9 +119,24 @@ public final class ImageTests {
         } finally {
             io.shutdownNow();
             if(service!=null) instrumentation.runOnMainSync(()->service.stopServer());
+            if(imageActivity!=null) instrumentation.runOnMainSync(()->imageActivity.finish());
             if(connection!=null) {ServiceConnection binding=connection;instrumentation.runOnMainSync(()->target.unbindService(binding));}
         }
         instrumentation.finish(outcome,result);
+    }
+    private void checkUnloaded(File previousImage,String selection) throws Exception {
+        waitFor(()->onMain(()->!service.getImages().isBusy()),15,"image_unload_drained");
+        check(onMain(()->service.getImages().status().equals(target.getString(R.string.image_unloaded))),"image_unload_completed");
+        check(!onMain(()->imageActivity.findViewById(R.id.unload_image_model).isEnabled()),"image_unload_button_reset");
+        List<ActivityManager.RunningAppProcessInfo> processes=target.getSystemService(ActivityManager.class).getRunningAppProcesses();
+        if(processes!=null)for(ActivityManager.RunningAppProcessInfo process:processes) {
+            check(process.uid!=android.os.Process.myUid()||!process.processName.equals(target.getPackageName()+":images"),"image_unload_releases_process");
+        }
+        check(onMain(()->service.isServerRunning()&&service.getImages().isAvailable()),"image_unload_keeps_server_and_models");
+        check(onMain(()->previousImage.equals(service.getImages().image()))&&previousImage.isFile(),"image_unload_keeps_preview");
+        check(Objects.equals(selection,target.getSharedPreferences(ImageModels.PREFERENCES,Context.MODE_PRIVATE).getString(ImageModels.KEY_MODEL,null)),"image_unload_keeps_folder");
+        Reply discovery=request("GET","/v1/models",null,true);
+        check(discovery.status==200&&discovery.body.contains(ImageModels.MODEL_ID),"image_unload_keeps_model_discovery");
     }
     private void checkImage(Reply reply) throws Exception {
         if(reply.status!=200) {report.put("http_failure_response",reply.body);save();}
@@ -104,7 +145,7 @@ public final class ImageTests {
         android.graphics.Bitmap bitmap=BitmapFactory.decodeByteArray(png,0,png.length);
         check(bitmap!=null&&bitmap.getWidth()==512&&bitmap.getHeight()==512,"png_dimensions");bitmap.recycle();
     }
-    private String body(long seed) throws Exception {return new JSONObject().put("model",ImageModels.MODEL_ID).put("prompt",prompt).put("seed",seed).put("n",1).put("size","512x512").put("response_format","b64_json").toString();}
+    private String body(long seed) throws Exception {return new JSONObject().put("model",ImageModels.MODEL_ID).put("prompt",prompt).put("seed",seed).put("n",1).put("size","512x512").put("response_format","b64_json").put("quality","auto").put("output_format","png").put("background","auto").put("stream",false).toString();}
     private Reply request(String method,String path,String body,boolean authenticate) throws Exception {
         try(Socket socket=new Socket("127.0.0.1",PORT)) {
             socket.setSoTimeout(6*60*1000);

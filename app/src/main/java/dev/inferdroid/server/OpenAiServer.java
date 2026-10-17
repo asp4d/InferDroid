@@ -62,6 +62,7 @@ public final class OpenAiServer implements AutoCloseable {
     private final ScheduledThreadPoolExecutor deadlines = new ScheduledThreadPoolExecutor(1,
             task -> new Thread(task, "InferDroid-http-deadlines"));
     private volatile ServerSocket listener;
+    private volatile Thread listenerThread;
     private volatile boolean running;
 
     public OpenAiServer(ServerConfig config, String modelSource, boolean verbose, ChatGateway gateway,
@@ -98,7 +99,8 @@ public final class OpenAiServer implements AutoCloseable {
             close();
             throw error;
         }
-        new Thread(this::accept, "InferDroid-http-listener").start();
+        listenerThread = new Thread(this::accept, "InferDroid-http-listener");
+        listenerThread.start();
     }
 
     public boolean isRunning() { return running; }
@@ -461,7 +463,7 @@ public final class OpenAiServer implements AutoCloseable {
     }
 
     private static ApiError methodError() {
-        return new ApiError(405, "Use GET /v1/models or POST /v1/chat/completions, /v1/audio/transcriptions, /v1/audio/speech.", "invalid_request_error", "method_not_allowed", null);
+        return new ApiError(405, "Use GET /v1/models or POST /v1/chat/completions, /v1/audio/transcriptions, /v1/audio/speech, /v1/images/generations.", "invalid_request_error", "method_not_allowed", null);
     }
 
     private static final class HttpRequest {
@@ -578,11 +580,21 @@ public final class OpenAiServer implements AutoCloseable {
 
     private static void closeSocket(Socket socket) { try { socket.close(); } catch (IOException ignored) { } }
 
-    @Override public synchronized void close() {
-        running = false;
-        if (listener != null) { try { listener.close(); } catch (IOException ignored) { } }
-        for (Socket socket : clients) closeSocket(socket);
-        workers.shutdownNow();
-        deadlines.shutdownNow();
+    @Override public void close() {
+        Thread thread;
+        synchronized (this) {
+            running = false;
+            if (listener != null) { try { listener.close(); } catch (IOException ignored) { } }
+            for (Socket socket : clients) closeSocket(socket);
+            workers.shutdownNow();
+            deadlines.shutdownNow();
+            thread = listenerThread;
+        }
+        // Android can retain the listening socket until a blocked accept exits.
+        // Join outside the monitor: the listener also calls close() in finally.
+        if (thread != null && thread != Thread.currentThread()) {
+            try { thread.join(1000); }
+            catch (InterruptedException error) { Thread.currentThread().interrupt(); }
+        }
     }
 }

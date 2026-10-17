@@ -10,8 +10,9 @@ E2B NPU path with **local image understanding**, **offline speech recognition** 
 with SDXS on Tensor G5. The independent audio
 engines use sherpa-onnx on CPU. A Java foreground service retains the
 models between requests and serves an authenticated **OpenAI-compatible
-localhost API**, including text/image chat with live SSE, audio-file transcription, and WAV/PCM
-speech synthesis. The UI shows generated text, speech transcripts, audio preview/export,
+localhost API**, including text/image chat with live SSE, audio-file transcription, WAV/PCM
+speech synthesis, and image generation through **`POST /v1/images/generations`**.
+The UI shows generated text, speech transcripts, audio preview/export,
 backend status, model/server controls,
 native diagnostics, and customizable themes and languages. Work runs off the
 UI thread and shares one active-work slot. Image generation is included in the
@@ -113,6 +114,32 @@ themes, and English/Italian translations. See [image generation](docs/image-gene
 Model export and Tensor G5 compilation tools remain in
 [the research sources](research/tensor-g5/README.md); SDKs, models, and detailed
 results stay under the ignored `.local/` directory.
+
+## Image generation for OpenAI clients
+
+1. Open **Generate images**, choose the supported SDXS model folder, and tap
+   **Load model** to import it. Wait for the import to finish. If you return
+   to the main screen while it is running, **Start server** becomes available
+   automatically when the import completes.
+2. Start **Local OpenAI API** on the main screen and copy its local API key.
+3. Configure the client's OpenAI base URL as `http://127.0.0.1:8080/v1` and
+   image model as `sdxs-512-dreamshaper-tensor-g5`. The client must support
+   the OpenAI Images API and base64 image responses.
+
+```bash
+curl --max-time 600 http://127.0.0.1:8080/v1/images/generations \
+  -H "Authorization: Bearer $INFERDROID_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"sdxs-512-dreamshaper-tensor-g5","prompt":"A red robot reading in a garden","n":1,"size":"512x512","response_format":"b64_json"}'
+```
+
+The response contains `created` and `data[0].b64_json`, a base64-encoded
+512×512 PNG generated entirely on the phone. `GET /v1/models` lists the
+image model after import. This uses the same port, key, and CORS setting as
+chat and audio; a chat model is not required. Clients on the phone connect
+directly; a development computer can use `adb forward tcp:8080 tcp:8080`.
+See [the full image API contract and OpenAI Python example](docs/image-generation.md#local-api)
+for supported options and limits. Image quality remains experimental.
 
 ## Acknowledgements & Development
 
@@ -377,7 +404,8 @@ inference slot across chat, ASR, and TTS; an overlap returns an OpenAI-style **4
 and optional CORS settings persist and can be changed while the listener is
 stopped. **Stop server** cancels its active client request and retains the
 loaded models for UI use. **Unload / Stop** stops the server and drains/unloads
-all three engines. ASR/TTS can be served without choosing or loading Gemma.
+all engines, including the image worker. ASR/TTS and image generation can be
+served without choosing or loading Gemma.
 
 Chat clients can opt into Gemma thinking with `enable_thinking: true`. Its default
 output budget is 2,048 tokens, versus 256 for direct responses; either mode accepts
@@ -488,6 +516,10 @@ the main screen.
    when needed. A failed import preserves the previous working bundle and
    reports the error instead of generating with the wrong selection.
 4. Preview the result and use **Save PNG** to export it through Android's picker.
+5. Use **Unload / Stop images** to stop image generation and release the image
+   worker's remaining memory. Model files, folder selection, and the last PNG
+   are kept. The server and other engines stay available; the next image
+   request starts the image runtime automatically.
 
 The current profile supports one **512×512 PNG** per request with one Euler
 step. Image quality is experimental and the denoiser's numerical validation
@@ -659,7 +691,7 @@ adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r dev.inferdroid.test/dev.inferdroid.engine.EngineManagerInstrumentation
 ```
 
-Expected result: `Lifecycle/API tests: 40 passed, 0 failed.` The runner uses only
+Expected result: `Lifecycle/API tests: 44 passed, 0 failed.` The runner uses only
 Android platform APIs and adds no test dependencies or fake backend to the
 application APK. Instrumentation restarts the target app process; reopen
 InferDroid afterward and press Run, Generate speech, or Start server for a real request.

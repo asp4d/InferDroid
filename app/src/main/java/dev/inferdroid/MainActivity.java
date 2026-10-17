@@ -53,6 +53,9 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
     private EngineManager manager;
     private SpeechManager speech;
     private TtsManager tts;
+    private final Runnable imageChanged = () -> {
+        if (manager != null) onStateChanged(manager.getState());
+    };
     private Button importTts;
     private Button loadTts;
     private Button unloadTts;
@@ -127,6 +130,7 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
             manager.attach(MainActivity.this);
             speech.attach(MainActivity.this);
             tts.attach(MainActivity.this);
+            service.getImages().attach(imageChanged);
             service.attachServer(MainActivity.this);
             executePending();
             exportTtsIfReady();
@@ -136,7 +140,10 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
             if (manager != null) manager.detach(MainActivity.this);
             if (speech != null) speech.detach(MainActivity.this);
             if (tts != null) tts.detach(MainActivity.this);
-            if (service != null) service.detachServer(MainActivity.this);
+            if (service != null) {
+                service.getImages().detach(imageChanged);
+                service.detachServer(MainActivity.this);
+            }
             manager = null;
             speech = null;
             tts = null;
@@ -329,7 +336,10 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         if (manager != null) manager.detach(this);
         if (speech != null) speech.detach(this);
         if (tts != null) tts.detach(this);
-        if (service != null) service.detachServer(this);
+        if (service != null) {
+            service.getImages().detach(imageChanged);
+            service.detachServer(this);
+        }
         if (bound) unbindService(connection);
         bound = false;
         manager = null;
