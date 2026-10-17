@@ -51,6 +51,8 @@ public final class OpenAiServer implements AutoCloseable {
     private final String modelSource;
     private final boolean verbose;
     private final ChatGateway gateway;
+    private ImageGateway images;
+    public void setImages(ImageGateway images) { this.images = images; }
     private final TranscriptionGateway speech;
     private final SynthesisGateway tts;
     private final Runnable onUnexpectedStop;
@@ -148,7 +150,7 @@ public final class OpenAiServer implements AutoCloseable {
             // Some OpenAI clients append /v1 to an already versioned base URL
             // for model probes. Accept that single duplicate prefix as an alias.
             if (path.startsWith("/v1/v1/")) path = path.substring(3);
-            if (!Set.of("/v1/models", "/v1/chat/completions", "/v1/audio/transcriptions", "/v1/audio/speech").contains(path)) {
+            if (!Set.of("/v1/models", "/v1/chat/completions", "/v1/audio/transcriptions", "/v1/audio/speech", "/v1/images/generations").contains(path)) {
                 throw new ApiError(404, "Unknown API endpoint.", "invalid_request_error", "not_found", null);
             }
             if (request.headers.containsKey("origin") && !config.cors) {
@@ -169,7 +171,7 @@ public final class OpenAiServer implements AutoCloseable {
             }
             if (path.equals("/v1/models")) {
                 if (!request.method.equals("GET")) throw methodError();
-                json(output, 200, OpenAiProtocol.models(!modelSource.isEmpty(), speech != null && speech.isAvailable(), tts != null && tts.isAvailable()));
+                json(output, 200, ImageProtocol.models(OpenAiProtocol.models(!modelSource.isEmpty(), speech != null && speech.isAvailable(), tts != null && tts.isAvailable()), images != null && images.isAvailable()));
                 return;
             }
             if (!request.method.equals("POST")) throw methodError();
@@ -203,6 +205,7 @@ public final class OpenAiServer implements AutoCloseable {
             } catch (CharacterCodingException error) {
                 throw OpenAiProtocol.invalid("JSON must be valid UTF-8.", null);
             }
+            if (path.equals("/v1/images/generations")) { generateImage(socket, input, output, body, headerTimeout); return; }
             if (path.equals("/v1/audio/speech")) {
                 synthesize(socket, input, output, body, headerTimeout);
                 return;
@@ -387,6 +390,30 @@ public final class OpenAiServer implements AutoCloseable {
     private static final class AudioSession implements TranscriptionListener {
         volatile TranscriptionResult result;
         @Override public void onComplete(TranscriptionResult result) { this.result = result; }
+    }
+
+    private void generateImage(Socket socket, InputStream input, OutputStream output, String body,
+                               ScheduledFuture<?> intakeDeadline) throws Exception {
+        ImageProtocol.Request request = ImageProtocol.parse(body);
+        if (images == null || !images.isAvailable()) throw new ApiError(503, "Import the local image models in InferDroid first.", "server_error", "image_model_unavailable", "model");
+        intakeDeadline.cancel(false);
+        ScheduledFuture<?> deadline = deadlines.schedule(() -> closeSocket(socket), REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        ImageSession session = new ImageSession(); boolean admitted = false;
+        try {
+            admitted = images.generate(request.prompt, request.seed, session);
+            if (!admitted) throw new ApiError(429, "Inference is busy. Retry when idle.", "rate_limit_error", "engine_busy", null);
+            socket.setSoTimeout(100);
+            while (session.result == null) {
+                try { if (input.read() < 0) throw new EOFException("Client disconnected."); throw new IOException("HTTP pipelining is unsupported."); }
+                catch (SocketTimeoutException ignored) { }
+                if (Thread.currentThread().isInterrupted() || socket.isClosed()) throw new IOException("Server stopped.");
+            }
+            json(output, 200, ImageProtocol.result(session.result));
+        } finally { deadline.cancel(false); if (admitted && session.result == null) images.cancel(session); }
+    }
+    private static final class ImageSession implements dev.inferdroid.images.ImageController.Callback {
+        volatile dev.inferdroid.images.ImageController.Result result;
+        public void complete(dev.inferdroid.images.ImageController.Result result) { this.result = result; }
     }
 
     private void synthesize(Socket socket, InputStream input, OutputStream output, String body,

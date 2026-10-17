@@ -16,14 +16,14 @@ public final class ClipTokenizer {
     private static final Pattern TOKENS=Pattern.compile("<\\|startoftext\\|>|<\\|endoftext\\|>|'s|'t|'re|'ve|'m|'ll|'d|[\\p{L}]+|[\\p{N}]|[^\\s\\p{L}\\p{N}]+");
     private static final Pattern SPACE=Pattern.compile("\\s+");
     public ClipTokenizer(Context context) throws Exception {
-        vocabulary=new JSONObject(new String(context.getAssets().open("image-research/vocab.json").readAllBytes(),StandardCharsets.UTF_8));
+        vocabulary=new JSONObject(ImageFiles.asset(context,"image-generation/generated/vocab.json"));
         List<Integer> visible=new ArrayList<>();
         for(int i=33;i<=126;i++) visible.add(i);
         for(int i=161;i<=172;i++) visible.add(i);
         for(int i=174;i<=255;i++) visible.add(i);
         int extra=256;
         for(int i=0;i<256;i++) bytes[i]=new String(Character.toChars(visible.contains(i)?i:extra++));
-        String merges=new String(context.getAssets().open("image-research/merges.txt").readAllBytes(),StandardCharsets.UTF_8);
+        String merges=ImageFiles.asset(context,"image-generation/generated/merges.txt");
         int rank=0;
         for(String line:merges.split("\\R")) if(!line.isBlank()&&!line.startsWith("#")) {
             String[] pair=line.trim().split(" ");

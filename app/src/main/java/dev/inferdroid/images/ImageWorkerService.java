@@ -3,6 +3,7 @@ package dev.inferdroid.images;
 import android.app.Service;
 import android.content.Intent;
 import android.os.*;
+import dev.inferdroid.R;
 import java.io.File;
 import java.util.concurrent.Executors;
 
@@ -19,13 +20,13 @@ public final class ImageWorkerService extends Service {
         worker.execute(()->{
             try {
                 File directory=new File(getFilesDir(),"image-runs/"+id);
-                if(!directory.mkdirs()) throw new java.io.IOException("Cannot create image output storage.");
+                if(!directory.mkdirs()) throw new java.io.IOException(getString(R.string.image_output_storage_failed));
                 File image=SdxsPipeline.generate(this,data.getString("prompt"),data.getLong("seed"),directory,
                     text->send(reply,PROGRESS,id,text));
                 send(reply,SUCCESS,id,image.toString());
             } catch(Exception|LinkageError|OutOfMemoryError error) {
                 // Own sanitized API errors are useful locally; native logs remain on device.
-                send(reply,FAILURE,id,error instanceof java.io.IOException?error.getMessage():"Image generation failed; inspect private device diagnostics.");
+                send(reply,FAILURE,id,error instanceof java.io.IOException?error.getMessage():getString(R.string.image_generation_failed));
             } finally {new Handler(Looper.getMainLooper()).post(()->{running=false;stopSelf();});}
         });return true;
     }));

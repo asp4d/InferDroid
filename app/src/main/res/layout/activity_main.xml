@@ -94,6 +94,14 @@
                 android:textColor="?attr/colorOnSurfaceVariant" />
         </LinearLayout>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/open_image_generation"
+            style="@style/AppButton.Outlined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="@string/image_generation_title" />
+
         <!-- Section 1: LLM Inference Model Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"

@@ -4,7 +4,8 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from paths import private as root
+from private_io import workspace_root
+root=workspace_root(__file__)
 from private_io import prepare_output,private_path,run_private
 def main():
     parser=argparse.ArgumentParser(description=__doc__)

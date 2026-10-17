@@ -16,7 +16,7 @@ FILES = (
     "setup.sh", "setup-export.sh", "private_io.py", "compile.py",
     "download_sdxs.py", "export_sdxs.py", "generate_sdxs_reference.py",
     "prepare_device_runtime.py", "build_device_probe.py", "npu_probe.cc",
-    "run_device_probe.py", "generate_on_pixel.py", "run_sdxs.py", "pack_toolkit.py",
+    "run_device_probe.py", "generate_on_pixel.py", "run_sdxs.py", "validate_app_outputs.py", "pack_toolkit.py",
 )
 
 

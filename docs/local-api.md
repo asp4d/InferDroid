@@ -6,14 +6,16 @@ makes no outbound requests. Java's `ChatGateway` routes protocol-neutral
 `GenerationRequest` objects to the same `EngineManager` used by the UI.
 `TranscriptionGateway` independently routes audio requests to `SpeechManager`.
 `SynthesisGateway` routes text-to-speech requests to `TtsManager`.
-All three lifecycles share `WorkGate`. No OpenAI account, cloud service, or API
+`ImageGateway` routes SDXS image generation to the same service's image controller.
+All four capabilities share `WorkGate`. No OpenAI account, cloud service, or API
 subscription is involved.
 
 ## Start and configure
 
 1. Select the existing Tensor G5 model with **Choose model** for chat, or
    [import the separate Whisper bundle](speech-recognition.md) for ASR or
-   [Supertonic bundle](tts.md) for TTS.
+   [Supertonic bundle](tts.md) for TTS, or select/load the
+   [SDXS folder](image-generation.md) through **Generate images**.
 2. Scroll to **Local OpenAI API**. Keep **Require local API key** enabled;
    **Copy key** copies the generated key for use in your client. The app masks
    the key and marks the clipboard entry sensitive on Android 13+.
@@ -22,7 +24,8 @@ subscription is involved.
 4. Press **Start server**. The displayed URL is the client's base URL.
    Starting the listener does not load models; the first request loads its
    engine automatically. **Load model** / **Load speech** / **Load TTS** can initialize them
-   beforehand. An ASR/TTS-only listener does not need a Gemma selection.
+   beforehand. Image generation uses the bundle imported through its screen.
+   A listener for only audio or image generation does not need a Gemma selection.
 5. The service and notification remain active while the server is listening,
    even before a model is loaded or after an initialization failure. Leaving
    the Activity does not stop the listener.
@@ -34,6 +37,7 @@ subscription is involved.
 | Chat model ID | `gemma-4-E2B-it_Google_Tensor_G5` |
 | ASR model ID | `sherpa-onnx-whisper-tiny` |
 | TTS model ID | `sherpa-onnx-supertonic-3-int8` |
+| Image-generation model ID | `sdxs-512-dreamshaper-tensor-g5` |
 
 Port, key, authentication choice, CORS choice, and the default thinking mode are saved privately. Stop
 the listener before changing them or choosing a different model. **Generate
@@ -44,7 +48,7 @@ localhost is accessible to other apps in the same Android profile.
 **Stop server** closes the listener and its client connections, cancels its
 active request, and leaves loaded models available to the UI. **Unload /
 Stop**, including the notification action, closes the listener, drains native
-work, unloads all three engines, and stops the service. Initialization remains
+work, releases the text/audio engines and image worker, and stops the service. Initialization remains
 non-interruptible; cancellation during loading skips generation after loading
 returns. A process kill does not automatically restart the server or reload
 the model. Start it again from the app.
@@ -87,6 +91,7 @@ examples are in [speech-recognition.md](speech-recognition.md) and [tts.md](tts.
 | `POST /v1/chat/completions` | Text/image input and client-executed functions, buffered or SSE when `stream: true` |
 | `POST /v1/audio/transcriptions` | Offline CPU file transcription; multipart, JSON/text/verbose JSON response |
 | `POST /v1/audio/speech` | Offline CPU TTS; JSON request, buffered 24 kHz mono PCM16 WAV/raw PCM response |
+| `POST /v1/images/generations` | Local SDXS Tensor G5 generation; one 512×512 PNG as `b64_json` |
 | `OPTIONS` on any endpoint | CORS preflight when CORS is enabled |
 
 A single repeated `/v1` prefix is accepted as an alias, such as

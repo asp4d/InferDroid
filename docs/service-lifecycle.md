@@ -44,7 +44,7 @@ started loopback listener and the socket-required `INTERNET` permission.
 Start server keeps the service foreground even while the engine is unloaded.
 Stop server closes all client connections and cancels only its active request;
 already loaded models stay available to the UI. Unload / Stop also closes
-the HTTP listener before draining and unloading all three native engines. API
+the HTTP listener before draining and unloading the text/audio engines and image worker. API
 disconnect cancellation is scoped to its owning listener, and native
 cancellation snapshots the engine/request ID before entering the control
 executor. Delayed cancellation cannot affect the next request.
@@ -85,7 +85,8 @@ drains/releases only ASR. Full Unload / Stop waits for chat, ASR, and TTS cleanu
 before removing foreground state. Each engine worker uses a separate work-time
 wake lock; any retained engine or the listener keeps the service foreground.
 
-`WorkGate` admits one load/import/inference operation across all three managers.
+`WorkGate` admits one load/import/inference operation across the text, ASR,
+and TTS managers and the image-generation controller.
 Cleanup holds its owner's slot until it finishes; independent engines may
 drain together while all new work remains rejected. HTTP and UI speech requests
 share this gate with chat. A listener identity scopes disconnect cancellation
@@ -123,6 +124,15 @@ foreground-service lifetime, and work-time wake lock. Twenty-five device tests
 and real image/NPU/audio regression checks passed. See
 [image handling and limits](image-understanding.md) and
 [the verification record](milestone-verification.md).
+
+## Image generation lifecycle
+
+Image generation has its own controller within the same `InferenceService`
+and shares the managers' work gate. Imports and generation run only after
+admission; the image worker lives in the app's private `:images` process to
+isolate its LiteRT ABI. Cancellation, foreground status, and full shutdown
+include that controller. See [image generation](image-generation.md) for its
+model picker, import lifecycle, and API.
 
 ## Independent TTS lifecycle
 

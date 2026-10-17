@@ -7,6 +7,14 @@
 **Native layer:** C/C++ via JNI where required  
 **Primary goal:** A fully local, privacy-preserving Android AI server that exposes an OpenAI-compatible localhost API and uses the Pixel 10 Tensor G5 neural accelerator where practical.
 
+**Implementation update, 2026-10-17:** local SDXS image generation is integrated
+into the normal **InferDroid** app (`dev.inferdroid`) and standard debug/release
+builds. It shares the text-generation model-selection conventions, remembered
+folder, load/generate controls, themes, and English/Italian translations. See
+[section 19](#19-image-generation-model-selection-update--2026-10-17) and the
+[current README](README.md#use-local-image-generation). The dated milestones
+and original development order below describe the initial handoff.
+
 ---
 
 ## 1. What has already been proven on the actual phone
@@ -272,6 +280,10 @@ Internally decode/store the image safely and pass it as a LiteRT-LM attachment/v
 The exact accelerator arrangement must be measured. The Gemma language model can use Tensor G5 while the vision encoder may potentially use a different backend depending on what the G5 package/runtime supports.
 
 ### Later research — image generation/editing
+
+**Current status:** image generation is integrated into the normal InferDroid
+app; see section 19. Image editing remains future work. The following
+scope guidance applied to the initial implementation.
 
 Gemma itself cannot generate images. Image generation requires a separate generative image model.
 
@@ -668,3 +680,74 @@ Network tools:
 ### Tool calling versus server orchestration
 
 OpenAI-compatible tool/function calling and autonomous server-side search are separate features. Preserve that distinction. A future request may either expose a model tool call back to a capable client for execution, or allow the server's own `ToolManager` to execute an approved tool and feed the result back into the model. Do not bake either behavior into the native Tensor G5 inference layer.
+
+---
+
+## 19. Image generation model selection update — 2026-10-17
+
+Image generation is part of the regular **InferDroid** app, application ID
+`dev.inferdroid`, and its existing localhost API on default port **8080**.
+Normal Android Studio/Gradle debug and release builds include it. There is one
+application, one service, and one build configuration; the former generated
+source mirror, alternate application ID, and build overlay have been removed.
+
+Production Java sources live in `app/src/main/java/dev/inferdroid/images/`,
+with image protocol support alongside the other API handlers. Layouts and
+English/Italian strings live in the normal `app/src/main/res/` directories;
+JNI is `app/src/main/cpp/native_images.cpp`. `InferenceService` owns the image
+controller and includes it in shared admission, notifications, cancellation,
+and shutdown. `POST /v1/images/generations` and model discovery use the same
+authenticated HTTP server as text and audio.
+
+The image UI follows the text-generation workflow:
+
+- **Choose model folder** selects the SDXS Tensor G5 bundle through Android's
+  Storage Access Framework: `text_encoder.tflite`, `unet.tflite`, and
+  `decoder.tflite`. The Pixel's existing folder is
+  `AIModels/sdxs-512-dreamshaper-tensor-g5`. All component sizes and SHA-256
+  hashes must match `app/src/main/assets/image-generation/profile.json`.
+- The selected URI is displayed and saved in private `images` preferences
+  under `model` after taking persistent read access. It remains preselected
+  after reopening and becomes the next picker's initial location. Temporary
+  grants show a warning; rotation preserves the current selection.
+- **Load model** imports and validates the folder without generating.
+  **Generate image** imports automatically when needed. `imported_model`
+  records the source of the verified private bundle. Selecting or restoring
+  a folder starts no work. Failed imports preserve the previous bundle and
+  report the error instead of silently generating from it. Import and
+  generation retain the shared work slot across both phases.
+- The screen uses the app's cards, inputs, buttons, themes, and English/Italian
+  labels, validation messages, progress, and notifications.
+
+The model is `sdxs-512-dreamshaper-tensor-g5`, generating one 512×512 PNG with
+one Euler step. Quality remains experimental; the denoiser's numerical
+validation is still open. Gemma remains responsible for text and image
+understanding. The image worker runs in the same app's private `:images`
+process, isolating LiteRT 2.3.0 from Gemma's pinned LiteRT-LM ABI. This process
+separation does not require another app or build.
+
+Run `python3 scripts/prepare-image-runtime.py` once alongside the existing
+native and speech preparation scripts. It verifies the checked-in
+`native/image-runtime-lock.json`, prepares the runtime, headers, tokenizer,
+and upstream notices, and packages no model weights or Tensor SDK. Gradle
+checks the prepared files before building, and the main CMake configuration
+builds all JNI bridges. Runtime binaries and downloads remain ignored under
+`native/artifacts/` and `.deps/`; compiler SDKs and model weights stay local.
+
+Image UI/model/API checks are part of the regular test APK and instrumentation
+runner, selected with `-e suite images` (plus `-e ui_only true` for UI checks).
+The normal lifecycle/API suite continues to use the same runner without that
+argument. See [image setup and verification](docs/image-generation.md).
+
+**Verification, 2026-10-17:** standard debug/release APKs and the normal test APK
+built, Android lint passed with zero errors, and both app APKs contain the
+`dev.inferdroid` identity, ten native libraries, and no model weights. The
+normal app updated with the existing signing certificate. All 40 lifecycle/API
+tests passed on the Pixel, along with real SAF selection/persistent access,
+automatic SDXS import/512×512 generation, cold-reopen preselection, image UI
+checks, eight tokenizer fixtures, image API discovery/validation, shared-work
+contention, disconnect cancellation, and recovery. Real NPU text generation
+passed after images, and another image succeeded with Gemma retained and
+still verified afterward. The separate research app/test installation created
+for earlier checks was removed from the current profile. Detailed artifacts and
+reports remain under ignored `.local/tensor-g5/outputs/`.

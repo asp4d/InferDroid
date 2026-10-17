@@ -19,7 +19,7 @@ final class ImageProtocol {
         for(Iterator<String> names=json.keys();names.hasNext();) {String name=names.next();if(!allowed.contains(name)) throw invalid("Unsupported image parameter: "+name,name);}
         if(json.has("model")&&!ImageModels.MODEL_ID.equals(json.opt("model"))) throw new OpenAiProtocol.ApiError(404,"Unknown local image model.","invalid_request_error","model_not_found","model");
         Object prompt=json.opt("prompt");
-        if(!(prompt instanceof String)||((String)prompt).isBlank()||((String)prompt).length()>8192) throw invalid("prompt must contain 1–8192 characters.","prompt");
+        if(!(prompt instanceof String)||((String)prompt).isBlank()||((String)prompt).length()>8192||((String)prompt).indexOf('\0')>=0) throw invalid("prompt must contain 1–8192 characters without null characters.","prompt");
         if(json.has("n")&&(!(json.opt("n") instanceof Integer)||json.getInt("n")!=1)) throw invalid("This model generates one image per request; use n=1.","n");
         if(json.has("size")&&!"512x512".equals(json.opt("size"))) throw invalid("This compiled model supports size=512x512.","size");
         if(json.has("response_format")&&!"b64_json".equals(json.opt("response_format"))) throw invalid("Use response_format=b64_json.","response_format");

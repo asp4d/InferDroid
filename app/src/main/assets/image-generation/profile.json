@@ -1,0 +1,22 @@
+{
+  "source_revision": "76f720262bb051da75666b22c902a78c8e16c763",
+  "sigma": 14.614646911621094,
+  "initial_noise_sigma": 14.614646911621094,
+  "timestep": 999.0,
+  "input_scale_denominator": 14.648818969726562,
+  "vae_scaling_factor": 1.0,
+  "files": {
+    "text_encoder.tflite": {
+      "sha256": "1a7579aaf372022cf6053abbfe2345aba32e7b2609b365465ed3476c1b36c86c",
+      "bytes": 865431712
+    },
+    "unet.tflite": {
+      "sha256": "22eb89aa1b2297433f837213bf5d991072d1cf65f0f15a811130eeb785443382",
+      "bytes": 672387872
+    },
+    "decoder.tflite": {
+      "sha256": "f2121d165d27d82857f8b04e42ce27e27fcebd492a7195bcfd8e955d26449515",
+      "bytes": 12441136
+    }
+  }
+}

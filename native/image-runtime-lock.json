@@ -1,0 +1,42 @@
+{
+  "litert_version": "2.3.0",
+  "model_repository": "IDKiro/sdxs-512-dreamshaper",
+  "model_revision": "76f720262bb051da75666b22c902a78c8e16c763",
+  "archives": [
+    {
+      "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litert/litert/2.3.0/litert-2.3.0.aar",
+      "sha256": "9508c6e9142646f0f2bc1fe68b3925fb470ee7ddd29114540339a04a8ab189dc"
+    },
+    {
+      "url": "https://dl.google.com/dl/android/maven2/com/google/ai/edge/litert/litert-npu-runtime-google-tensor/2.3.0/litert-npu-runtime-google-tensor-2.3.0.aar",
+      "sha256": "5f38ab3de4b99ef75edf13c595cf0c090b10a82d9697f5b55703409757e786f7"
+    }
+  ],
+  "headers": {
+    "litert/build_common/build_config.h": "69eeb0d5968d6e718f9b0510a5aa2057a5776ac825a7c12582030b5b26a593df",
+    "litert/c/internal/litert_scheduling_info.h": "b9076085c64234d90f693cd9017329652bcff605858f084771d4ddd0af37e9ca",
+    "litert/c/litert_any.h": "e10779327820f395eaad8ab6984f9f763943c07b0f17a18f3dbadd3d431f91dd",
+    "litert/c/litert_common.h": "42717402ae835f2276bf85eb5666709fb0b3bcdc09b49dbdeecb0191c94a369f",
+    "litert/c/litert_compiled_model.h": "e613c98b5299b0c3c130c883963d29f98a6f0b2dccc66c73b8a10bdccdcac13b",
+    "litert/c/litert_custom_op_kernel.h": "57f5081cb96d40ce0d63a9b31e96e5816c6847a4d11a85abfa2cbdd4759f52f7",
+    "litert/c/litert_custom_tensor_buffer.h": "70464c92ef72b20f67ad5898148cd9bb31ae995a411e5e233fc90aab4fbd2783",
+    "litert/c/litert_environment.h": "a83820ef9e68bd175db75a7ef155ce67f5bab2e7ad04e6b046affe9ee3366b3d",
+    "litert/c/litert_environment_options.h": "4e2acf5b5c78cae99fb0db40312556d348c32fd1c67f033f86e8a67968ccc995",
+    "litert/c/litert_gl_types.h": "e0ecbd8d410bc8790419c2f01794a8de0b06721fd55d003cd96e8e101764fc49",
+    "litert/c/litert_layout.h": "c16011a88f7487fa6d3e386905317cf9491d1666d5c7a7ed33e07a9f8b4cf514",
+    "litert/c/litert_model.h": "c409c985fc79b9f967890e475e28ab77c1fe7776874197a598438a7b2d916d8b",
+    "litert/c/litert_model_types.h": "01cf6ea792a7f6f55690fe7acfd8d41f5a707c8ea7cb7418f71e44c84d45757a",
+    "litert/c/litert_op_code.h": "9937e456e6212efe1164c9c4ca8b1abb645d0dd9220cfefe0b4eca13cb18c49e",
+    "litert/c/litert_opencl_types.h": "2cb880623b4d4eb86d242d4b246a14dd42b5fbebf297ceb9bb4012fed6a208b4",
+    "litert/c/litert_options.h": "d7ff502b26c7f54574b351a5afbc247e639843bcb4270d0615d38abbde503d9a",
+    "litert/c/litert_tensor_buffer.h": "2e45153e2d8510e2570f7965b2c46403445786b535c542f077ac9afda78b1274",
+    "litert/c/litert_tensor_buffer_requirements.h": "f71921b6bd7959ad4c24808296f53a56c8c1c3677a8cbaf48d5d611e02490387",
+    "litert/c/litert_tensor_buffer_types.h": "5fa19ae0438f270b3c09281358b9cdfad04c47782cc97582e0af582ec7888450",
+    "litert/c/litert_webgpu_types.h": "944030a82f2737b1436893fc5ececfef06ea8cc61580d0c93caa787a5763c011"
+  },
+  "tokenizer": {
+    "vocab.json": "e089ad92ba36837a0d31433e555c8f45fe601ab5c221d4f607ded32d9f7a4349",
+    "merges.txt": "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a"
+  },
+  "model_card_sha256": "6b38a4c76fcdf184abfa6186e913f7badc5468e9d2ff8b16a909a9e8193bec47"
+}

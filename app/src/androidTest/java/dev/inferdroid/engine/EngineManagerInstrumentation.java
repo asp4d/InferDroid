@@ -15,8 +15,10 @@ import dev.inferdroid.server.SpeechTests;
 import dev.inferdroid.server.TtsTests;
 import java.nio.charset.StandardCharsets;
 
-/** Headless platform-SDK tests: no test libraries, model, Activity, or JNI required. */
+/** Platform-SDK tests: headless lifecycle/API checks, or the opt-in real-model image suite. */
 public final class EngineManagerInstrumentation extends Instrumentation {
+    private boolean imageSuite;
+    private boolean imageUiOnly;
     private final GenerationRequest request = new GenerationRequest("test-model", "Hello", false);
     private final EngineManager.WorkGuard guard = new EngineManager.WorkGuard() {
         @Override public void begin() { offMain(); }
@@ -25,10 +27,16 @@ public final class EngineManagerInstrumentation extends Instrumentation {
 
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
+        imageSuite = arguments != null && "images".equals(arguments.getString("suite"));
+        imageUiOnly = arguments != null && "true".equals(arguments.getString("ui_only"));
         start();
     }
 
     @Override public void onStart() {
+        if (imageSuite) {
+            dev.inferdroid.images.ImageTests.run(this, imageUiOnly);
+            return;
+        }
         int failures = 0;
         String[] names = {"busyAndReuse", "cancelAndReuse", "stopDuringLoad", "splitUtf8Streaming",
                 "apiAuthenticationAndValidation", "apiChatHistoryAndErrors", "apiLiveStreaming",

@@ -16,35 +16,42 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.json.*;
 
 /** Real model, tokenization, HTTP admission, disconnect and recovery checks. */
-public final class ImageInstrumentation extends Instrumentation {
+public final class ImageTests {
+    private final Instrumentation instrumentation;
     private static final int PORT=18081;
     private static final String KEY="private-image-instrumentation";
     private final JSONObject report=new JSONObject();
     private InferenceService service;
     private Context target;
+    private final boolean uiOnly;
     private final String prompt="A small red robot reading a book in a sunny garden, digital illustration";
     private final ExecutorService io=Executors.newSingleThreadExecutor();
-    @Override public void onCreate(Bundle args) {super.onCreate(args);start();}
-    @Override public void onStart() {
-        target=getTargetContext();Bundle result=new Bundle();int outcome=Activity.RESULT_CANCELED;
+    private ImageTests(Instrumentation instrumentation, boolean uiOnly) { this.instrumentation=instrumentation; this.uiOnly=uiOnly; }
+    public static void run(Instrumentation instrumentation, boolean uiOnly) { new ImageTests(instrumentation,uiOnly).run(); }
+    private void run() {
+        target=instrumentation.getTargetContext();Bundle result=new Bundle();int outcome=Activity.RESULT_CANCELED;
         ServiceConnection connection=null;
         try {
+            stage("image_ui");
+            new ImageUiTests(instrumentation).run();
+            report.put("image_ui_passed",true);save();
+            if(!uiOnly) {
             stage("tokenizer");
-            JSONArray fixtures=new JSONArray(new String(target.getAssets().open("image-research/tokenizer-fixtures.json").readAllBytes(),StandardCharsets.UTF_8));
+            JSONArray fixtures=new JSONArray(new String(instrumentation.getContext().getAssets().open("image-generation/tokenizer-fixtures.json").readAllBytes(),StandardCharsets.UTF_8));
             ClipTokenizer tokenizer=new ClipTokenizer(target);
             for(int i=0;i<fixtures.length();i++) {
                 JSONObject fixture=fixtures.getJSONObject(i);int[] actual=tokenizer.encode(fixture.getString("prompt"));JSONArray ids=fixture.getJSONArray("ids");
                 for(int j=0;j<actual.length;j++) check(actual[j]==ids.getInt(j),"tokenizer_fixture_"+i+"_token_"+j);
             }
             report.put("tokenizer_fixtures_passed",fixtures.length());save();
-            startActivitySync(new Intent(target,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            instrumentation.startActivitySync(new Intent(target,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             CountDownLatch bound=new CountDownLatch(1);
             connection=new ServiceConnection() {
                 public void onServiceConnected(ComponentName name,IBinder binder) {service=((InferenceService.LocalBinder)binder).getService();bound.countDown();}
                 public void onServiceDisconnected(ComponentName name) {service=null;}
             };
             ServiceConnection binding=connection;
-            runOnMainSync(()->target.bindService(new Intent(target,InferenceService.class),binding,Context.BIND_AUTO_CREATE));
+            instrumentation.runOnMainSync(()->target.bindService(new Intent(target,InferenceService.class),binding,Context.BIND_AUTO_CREATE));
             check(bound.await(10,TimeUnit.SECONDS),"service_binding");
             check(onMain(()->service.getImages().isAvailable()),"local_models_present");
             onMain(()->{service.startServer(new ServerConfig(PORT,KEY,true,false),"",false);return true;});
@@ -75,18 +82,20 @@ public final class ImageInstrumentation extends Instrumentation {
             report.put("disconnect_cancel_passed",true);save();
             checkImage(request("POST","/v1/images/generations",body(7),true));
             report.put("recovery_image",onMain(()->service.getImages().image().toString()));
-            report.put("recovery_passed",true).put("passed",true);stage("completed");
-            result.putString("image_research_result","passed");
+            report.put("recovery_passed",true);
+            }
+            report.put("passed",true);stage("completed");
+            result.putString("image_generation_result","passed");
             outcome=Activity.RESULT_OK;
         } catch(Throwable error) {
             try {JSONArray causes=new JSONArray();Throwable cause=error;for(int i=0;cause!=null&&i<8;i++,cause=cause.getCause()) causes.put(cause.getClass().getSimpleName()+": "+cause.getMessage());report.put("passed",false).put("failure",error.getClass().getSimpleName()+": "+error.getMessage()).put("failure_causes",causes);save();} catch(Exception ignored) { }
-            result.putString("image_research_result","failed; inspect the private application verification report");
+            result.putString("image_generation_result","failed; inspect the private application verification report");
         } finally {
             io.shutdownNow();
-            if(service!=null) runOnMainSync(()->service.stopServer());
-            if(connection!=null) {ServiceConnection binding=connection;runOnMainSync(()->target.unbindService(binding));}
+            if(service!=null) instrumentation.runOnMainSync(()->service.stopServer());
+            if(connection!=null) {ServiceConnection binding=connection;instrumentation.runOnMainSync(()->target.unbindService(binding));}
         }
-        finish(outcome,result);
+        instrumentation.finish(outcome,result);
     }
     private void checkImage(Reply reply) throws Exception {
         if(reply.status!=200) {report.put("http_failure_response",reply.body);save();}
@@ -108,7 +117,7 @@ public final class ImageInstrumentation extends Instrumentation {
         }
     }
     private static final class Reply {final int status;final String body;Reply(int status,String body) {this.status=status;this.body=body;}}
-    private <T>T onMain(Callable<T> action) throws Exception {FutureTask<T> task=new FutureTask<>(action);runOnMainSync(task);return task.get(10,TimeUnit.SECONDS);}
+    private <T>T onMain(Callable<T> action) throws Exception {FutureTask<T> task=new FutureTask<>(action);instrumentation.runOnMainSync(task);return task.get(10,TimeUnit.SECONDS);}
     private void waitFor(Callable<Boolean> condition,int seconds,String name) throws Exception {long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(seconds);while(System.nanoTime()<until) {if(condition.call()) return;Thread.sleep(25);}throw new AssertionError(name);}
     private void check(boolean value,String name) {if(!value) throw new AssertionError(name);}
     private void stage(String name) throws Exception {report.put("stage",name);save();}

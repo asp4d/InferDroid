@@ -33,6 +33,8 @@ import dev.inferdroid.tts.SynthesisRequest;
 import dev.inferdroid.tts.SynthesisListener;
 import dev.inferdroid.server.ChatGateway;
 import dev.inferdroid.server.OpenAiServer;
+import dev.inferdroid.server.ImageGateway;
+import dev.inferdroid.images.ImageController;
 import dev.inferdroid.server.ServerConfig;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -62,6 +64,7 @@ public final class InferenceService extends Service implements EngineManager.Lis
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Set<ServerListener> serverListeners = new LinkedHashSet<>();
     private OpenAiServer server;
+    private ImageController images;
     private String serverStatus = "Local API stopped.";
     private boolean shuttingDown;
 
@@ -82,6 +85,10 @@ public final class InferenceService extends Service implements EngineManager.Lis
         speech = new SpeechManager(new SherpaSpeechEngine(speechModels), workGuard("InferDroid:speech"), gate);
         ttsModels = new TtsModelStore(this);
         tts = new TtsManager(new SherpaTtsEngine(ttsModels), workGuard("InferDroid:tts"), gate);
+        images = new ImageController(this, gate, () -> {
+            if (foreground) notifications.notify(NOTIFICATION, notification(manager.getState()));
+            stopIfIdle();
+        });
         tts.attach(this);
         speech.attach(this);
         manager.attach(this);
@@ -98,6 +105,21 @@ public final class InferenceService extends Service implements EngineManager.Lis
     }
 
     @Override public IBinder onBind(Intent intent) { return binder; }
+    public ImageController getImages() { return images; }
+    public boolean generateImage(String prompt, long seed, ImageController.Callback callback) {
+        return generateImage(prompt, seed, null, callback);
+    }
+    public boolean generateImage(String prompt, long seed, Uri folder, ImageController.Callback callback) {
+        if (shuttingDown || isBusy() || prompt == null || prompt.isBlank() || prompt.length() > 8192 || prompt.indexOf('\0') >= 0) return false;
+        ensureForeground();
+        return images.generate(prompt, seed, folder, callback);
+    }
+    public boolean importImageModels(Uri folder) {
+        if (shuttingDown || isBusy()) return false;
+        ensureForeground();
+        return images.importModels(folder);
+    }
+
     public EngineManager getManager() { return manager; }
     public SpeechManager getSpeechManager() { return speech; }
     public boolean hasSpeechModel() { return speechModels.isAvailable(); }
@@ -166,6 +188,16 @@ public final class InferenceService extends Service implements EngineManager.Lis
                 stopIfIdle();
             }
         }));
+        candidate.setImages(new ImageGateway() {
+            public boolean isAvailable() { return images.isAvailable(); }
+            public boolean generate(String prompt, long seed, ImageController.Callback callback) throws Exception {
+                FutureTask<Boolean> admission = new FutureTask<>(() -> !shuttingDown && isServerRunning() && generateImage(prompt, seed, callback));
+                main.post(admission);
+                try { return admission.get(5, TimeUnit.SECONDS); }
+                catch (Exception error) { admission.cancel(false); cancel(callback); throw error; }
+            }
+            public void cancel(ImageController.Callback callback) { main.post(() -> images.cancel(callback)); }
+        });
         try {
             candidate.start();
             server = candidate;
@@ -200,7 +232,7 @@ public final class InferenceService extends Service implements EngineManager.Lis
     }
 
     private void stopIfIdle() {
-        if (!isServerRunning() && manager.getState().phase == EngineManager.Phase.UNLOADED
+        if ((images == null || !images.isBusy()) && !isServerRunning() && manager.getState().phase == EngineManager.Phase.UNLOADED
                 && speech.getState().phase == SpeechManager.Phase.UNLOADED
                 && tts.getState().phase == TtsManager.Phase.UNLOADED) {
             wanted = false;
@@ -254,14 +286,14 @@ public final class InferenceService extends Service implements EngineManager.Lis
         return tts.synthesize(request, null);
     }
     public void unloadTts() { tts.unload(this::stopIfIdle); }
-    public void cancel() { manager.cancel(); speech.cancel(); tts.cancel(); }
+    public void cancel() { manager.cancel(); speech.cancel(); tts.cancel(); images.cancel(null); }
 
     public void unload() {
         if (shuttingDown) return;
         shuttingDown = true;
         closeServer();
         publishServer();
-        int[] remaining = {3};
+        int[] remaining = {4};
         Runnable stopped = () -> {
             if (--remaining[0] != 0) return;
             wanted = false;
@@ -270,6 +302,7 @@ public final class InferenceService extends Service implements EngineManager.Lis
             stopSelf();
             shuttingDown = false;
         };
+        images.shutdown(stopped);
         manager.unload(stopped);
         speech.unload(stopped);
         tts.unload(stopped);
@@ -329,6 +362,7 @@ public final class InferenceService extends Service implements EngineManager.Lis
     }
 
     private Notification notification(EngineManager.State state) {
+        if (images != null && images.isBusy()) return images.notification(CHANNEL);
         PendingIntent open = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -367,6 +401,7 @@ public final class InferenceService extends Service implements EngineManager.Lis
         wanted = false;
         shuttingDown = true;
         closeServer();
+        images.close();
         serverListeners.clear();
         manager.detach(this);
         speech.detach(this);

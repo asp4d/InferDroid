@@ -25,7 +25,7 @@ This sets up two Python environments, downloads the pinned public model,
 exports and CPU-checks its three components, and compiles for Tensor G5. Add
 `--run-on-pixel --ndk-dir /absolute/path/to/android-ndk` for native device
 comparisons and an image generated through host orchestration. This standalone
-harness uses host tokenization/scheduling; the [Android integration](../app-overlay/README.md)
+harness uses host tokenization/scheduling; the [Android integration](../../../docs/image-generation.md)
 performs the full pipeline on the phone.
 
 The optional `--allow-numerical-differences` continues after a finite tensor
@@ -76,8 +76,8 @@ python3 research/tensor-g5/tooling/pack_toolkit.py \
 
 The scripts-only ZIP has an explicit allowlist and a `FILES.sha256` manifest.
 It excludes SDKs, models, environments, configuration, research notes, results,
-logs and binaries. For the combined app/tooling ZIP, use `app-overlay/pack.py`
-as described in the [research README](../README.md).
+logs and binaries. The regular app implementation is versioned under `app/src/`
+with the rest of InferDroid; see the [research README](../README.md).
 
 A standalone tooling ZIP can be extracted into a private directory outside the
 checkout. In that case the extraction directory becomes its workspace. Put

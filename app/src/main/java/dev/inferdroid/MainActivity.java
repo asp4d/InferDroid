@@ -150,6 +150,8 @@ public final class MainActivity extends AppCompatActivity implements EngineManag
         ThemeHelper.applyTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        findViewById(R.id.open_image_generation).setOnClickListener(view ->
+                startActivity(new Intent(this, dev.inferdroid.images.ImageActivity.class)));
         currentAppliedTheme = ThemeHelper.getSelectedTheme(this);
         currentAppliedLanguage = ThemeHelper.getSelectedLanguage(this);
 

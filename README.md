@@ -6,15 +6,17 @@
 
 A native **Android Studio / Java / JNI** app for the proven Pixel 10 Gemma 4
 E2B NPU path with **local image understanding**, **offline speech recognition** with multilingual Whisper tiny,
-and **offline text to speech** with Supertonic 3 int8. The independent audio
+**offline text to speech** with Supertonic 3 int8, and **local image generation**
+with SDXS on Tensor G5. The independent audio
 engines use sherpa-onnx on CPU. A Java foreground service retains the
 models between requests and serves an authenticated **OpenAI-compatible
 localhost API**, including text/image chat with live SSE, audio-file transcription, and WAV/PCM
 speech synthesis. The UI shows generated text, speech transcripts, audio preview/export,
 backend status, model/server controls,
 native diagnostics, and customizable themes and languages. Work runs off the
-UI thread and shares one active-work slot. Image generation and
-server-side network tools are later work. Chat supports client-executed function
+UI thread and shares one active-work slot. Image generation is included in the
+normal app and remembers the selected model folder. Server-side network tools
+are later work. Chat supports client-executed function
 calls, including streaming tool requests and returned tool results.
 
 **Reasoning probe, 2026-10-12:** the existing Pixel 10 installation generated
@@ -104,10 +106,13 @@ Read [the original handoff](pixel_local_ai_server_codex_handoff.md),
 [image understanding](docs/image-understanding.md) for exact source APIs,
 hashes, storage decisions, and licensing notes.
 
-Optional Tensor G5 image-generation integration and compilation helpers are in
-[the research sources](research/tensor-g5/README.md). That opt-in build keeps
-SDKs, models, generated files and detailed results under the ignored `.local/`
-directory.
+Image generation is part of the standard **InferDroid** APK, using application
+ID **`dev.inferdroid`** and the existing localhost API on port **8080**. Its
+screen shares the text screen's model selection, load/generate controls,
+themes, and English/Italian translations. See [image generation](docs/image-generation.md).
+Model export and Tensor G5 compilation tools remain in
+[the research sources](research/tensor-g5/README.md); SDKs, models, and detailed
+results stay under the ignored `.local/` directory.
 
 ## Acknowledgements & Development
 
@@ -127,8 +132,9 @@ Android Studio / OpenAI Codex / Gemini).
    Platform Tools, and NDK **30.0.14904198 (r30-beta1)**. Enable preview/show
    package details in SDK Manager for this exact NDK. Do not replace the pinned
    inference stack with a newer LiteRT dependency.
-4. Run both native build scripts below once from Android Studio's Terminal.
-   LiteRT uses Bazel; sherpa-onnx uses CMake. Gradle/CMake builds both JNI bridges.
+4. Run the native and speech build scripts and `python3 scripts/prepare-image-runtime.py`
+   below once from Android Studio's Terminal. LiteRT-LM uses Bazel; sherpa-onnx
+   uses CMake. Gradle/CMake builds the text, audio, and image JNI bridges.
 5. Sync Gradle, select the `app` run configuration and the physical Pixel 10.
    Android Studio **Build APK(s)** / **Run** builds the Java and JNI code and
    packages the prepared native runtime. Run launches the UI, but does not
@@ -137,10 +143,16 @@ Android Studio / OpenAI Codex / Gemini).
 
 Gradle Wrapper is pinned to **9.8.1** in
 [`gradle/wrapper/gradle-wrapper.properties`](gradle/wrapper/gradle-wrapper.properties).
-Android Gradle Plugin is **9.4.1**, declared in the version catalog
+Android Gradle Plugin is **9.1.0** to match the IDE's supported version, declared in the version catalog
 [`gradle/libs.versions.toml`](gradle/libs.versions.toml). Application ID:
 **`dev.inferdroid`**. Only **`arm64-v8a`** is packaged. Minimum Android API: 31;
 compile API: **37**; target API: **36**.
+
+AGP 9.1.0 is tested through compile SDK 36.1, so SDK 37 produces a
+compatibility warning. Gradle configuration and dependency metadata checks
+pass with this combination. Official SDK 37 support requires AGP 9.1.1 or
+newer and an IDE that supports that plugin version; see the
+[Android compatibility table](https://developer.android.com/build/releases/about-agp#api-level-support).
 
 `local.properties` is machine-specific and ignored. For an SDK-installed NDK:
 
@@ -180,6 +192,7 @@ export ANDROID_NDK_HOME=/absolute/path/to/android-ndk-r30-beta1
 export BAZEL=/absolute/path/to/bazel-7.6.1-linux-x86_64
 ./scripts/build-native.sh
 ./scripts/build-speech.sh
+python3 scripts/prepare-image-runtime.py
 ./gradlew :app:assembleDebug :app:lintDebug
 ```
 
@@ -198,6 +211,7 @@ export ANDROID_NDK_HOME="$PWD/.deps/toolchains/android-ndk-r30-beta1"
 export BAZEL="$PWD/.deps/tools/bazel-7.6.1-linux-x86_64"
 ./scripts/build-native.sh
 ./scripts/build-speech.sh
+python3 scripts/prepare-image-runtime.py
 ./gradlew :app:assembleDebug :app:lintDebug
 ```
 
@@ -456,6 +470,37 @@ Model weights use **OpenRAIL-M**, separately from the app's Apache license.
 See [tts.md](docs/tts.md) for the exact bundle, hashes, all language codes,
 compatibility mappings, cancellation behavior, and a `curl` example.
 
+## Use local image generation
+
+Image generation is included in the regular **InferDroid** app and normal
+Android Studio/Gradle debug and release builds. Open **Generate images** from
+the main screen.
+
+1. Tap **Choose model folder** and select a local folder containing the compatible
+   `text_encoder.tflite`, `unet.tflite`, and `decoder.tflite` SDXS Tensor G5 files.
+   The existing Pixel bundle is under `AIModels/sdxs-512-dreamshaper-tensor-g5`.
+2. The folder URI is displayed and saved with persistent read access. Reopening
+   the app restores the selection, and the picker starts at that folder.
+   Providers without persistent access show a warning; that selection lasts
+   for the current launch. Choosing a folder starts no work.
+3. Tap **Load model** to import and verify it in private storage, or enter a
+   prompt and integer seed and tap **Generate image** to import automatically
+   when needed. A failed import preserves the previous working bundle and
+   reports the error instead of generating with the wrong selection.
+4. Preview the result and use **Save PNG** to export it through Android's picker.
+
+The current profile supports one **512×512 PNG** per request with one Euler
+step. Image quality is experimental and the denoiser's numerical validation
+remains open. Only matching SDXS Tensor G5 components are supported; arbitrary
+models cannot be substituted. Weights are never embedded in the APK. The image
+worker uses its own `:images` process within the same application to keep its
+LiteRT ABI separate from Gemma, and shares the existing inference work slot.
+
+The existing authenticated API on **8080** includes
+`POST /v1/images/generations`, model `sdxs-512-dreamshaper-tensor-g5`,
+`n: 1`, `size: "512x512"`, and `response_format: "b64_json"`.
+See [setup, runtime pins, API examples, and verification](docs/image-generation.md).
+
 ## UI Customization, Themes & Languages
 
 InferDroid includes a dedicated **UI Settings** screen (accessible via the gear icon in the top header) for customizing the visual theme and language preferences:
@@ -534,6 +579,20 @@ python3 scripts/generate-icons.py
 Assembly and lint were rerun with JDK 21, Gradle 9.8.1 / AGP 9.4.1 /
 compile SDK 37 for milestone 5 on 2026-10-11.
 The same toolchain passed milestone 6, including the rebuilt vision adapter.
+
+**Image generation integration, 2026-10-17:** normal debug and release APKs
+built successfully and Android lint passed with **0 errors**. APK inspection
+confirmed the regular `dev.inferdroid` identity, ten native libraries, and no
+model weights. All **40 lifecycle/API tests** passed on the Pixel 10. Image
+checks also passed the real folder picker, persistent grant, automatic
+SDXS import/512×512 generation, cold-reopen selection, rotation, temporary
+access, validation, and failed-import preservation. The full image suite
+passed eight tokenizer fixtures, authenticated API/model discovery, shared
+admission, disconnect cancellation, and recovery. Real Gemma NPU text output
+also passed, followed by image generation with Gemma retained and still
+verified afterward. The former alternate application and generated-source overlay were removed. See
+[the image-generation setup and checks](docs/image-generation.md). Detailed
+reports and screenshots remain under ignored `.local/tensor-g5/outputs/`.
 
 - Native adapter and Google Tensor dispatch built from the pinned sources.
 - Independent ASR/Supertonic sherpa-onnx runtime built from pinned sources, with the

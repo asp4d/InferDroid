@@ -27,8 +27,8 @@ android {
         applicationId 'dev.inferdroid'
         minSdk 31
         targetSdk 36
-        versionCode 10
-        versionName '1.0.0'
+        versionCode 11
+        versionName '1.1.0'
         testInstrumentationRunner 'dev.inferdroid.engine.EngineManagerInstrumentation'
         ndk { abiFilters 'arm64-v8a' }
         externalNativeBuild {
@@ -119,10 +119,46 @@ def verifyNativeRuntime = tasks.register('verifyNativeRuntime') {
     }
 }
 
+def imageRuntimeDirectory = rootProject.file('native/artifacts/images')
+def imageRuntimeLock = rootProject.file('native/image-runtime-lock.json')
+def verifyImageRuntime = tasks.register('verifyImageRuntime') {
+    inputs.file(imageRuntimeLock)
+    inputs.files(fileTree(imageRuntimeDirectory))
+    inputs.files(fileTree('src/main/assets/image-generation/generated'))
+    inputs.files(fileTree('src/main/assets/third_party/generated/images'))
+    doLast {
+        def rebuildMessage = 'Run python3 scripts/prepare-image-runtime.py before building; see README.md.'
+        def manifest = new File(imageRuntimeDirectory, 'manifest.json')
+        if (!manifest.isFile()) throw new GradleException("Image runtime is missing. ${rebuildMessage}")
+        def sha256 = { File source ->
+            def digest = java.security.MessageDigest.getInstance('SHA-256')
+            source.withInputStream { stream ->
+                byte[] buffer = new byte[8192]
+                int count
+                while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+            }
+            digest.digest().encodeHex().toString()
+        }
+        def metadata = new groovy.json.JsonSlurper().parse(manifest)
+        if (metadata.lock_sha256 != sha256(imageRuntimeLock)) {
+            throw new GradleException("Image runtime inputs changed. ${rebuildMessage}")
+        }
+        metadata.files.each { path, checksum ->
+            def source = rootProject.file(path)
+            if (!source.isFile() || sha256(source) != checksum) {
+                throw new GradleException("Image runtime input ${source.name} is missing or changed. ${rebuildMessage}")
+            }
+        }
+    }
+}
+
 def stageRuntimeLibraries = tasks.register('stageRuntimeLibraries', Sync) {
-    dependsOn(verifyNativeRuntime)
+    dependsOn(verifyNativeRuntime, verifyImageRuntime)
     from(rootProject.file('native/artifacts/arm64-v8a')) {
         include 'libLiteRtDispatch_GoogleTensor.so', 'libGemmaModelConstraintProvider.so'
+    }
+    from(new File(imageRuntimeDirectory, 'arm64-v8a')) {
+        include 'libinferdroid_image_litert.so', 'libinferdroid_image_dispatch.so'
     }
     into(layout.buildDirectory.dir('generated/runtimeJniLibs/arm64-v8a'))
 }

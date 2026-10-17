@@ -8,6 +8,7 @@ local.properties
 /.local/
 native/artifacts/
 app/src/main/assets/third_party/generated/
+app/src/main/assets/image-generation/generated/
 *.litertlm
 *.apk
 *.aab
